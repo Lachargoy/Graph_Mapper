@@ -1,0 +1,17 @@
+mapper-venv/
+.codex
+.codex/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+.DS_Store
+*.log
+
+graph_mapper_agent/data/ledger/*.sqlite3
+graph_mapper_agent/data/ledger/*.sqlite3-*
+
+playwright-report/
+test-results/

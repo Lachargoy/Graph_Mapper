@@ -1,0 +1,2026 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Graph Mapper Agent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --app-h: calc(100vh - 32px);
+
+        /* Neutrals — warm off-white palette */
+        --bg:        #F5F4F0;
+        --surface:   #FFFFFF;
+        --surface2:  #F9F8F5;
+        --surface3:  #F2F1ED;
+        --border:    #E6E4DE;
+        --border2:   #D0CEC6;
+
+        --ink:       #19180F;
+        --ink-2:     #3B3A31;
+        --muted:     #6E6D63;
+        --faint:     #A8A79F;
+
+        /* Status palette */
+        --green:     #15803D;
+        --green-bg:  #F0FDF4;
+        --green-bd:  #BBF7D0;
+        --amber:     #B45309;
+        --amber-bg:  #FFFBEB;
+        --amber-bd:  #FDE68A;
+        --red:       #B91C1C;
+        --red-bg:    #FEF2F2;
+        --red-bd:    #FECACA;
+        --blue:      #1D4ED8;
+        --blue-bg:   #EFF6FF;
+        --blue-bd:   #BFDBFE;
+        --blue-mid:  #2563EB;   /* used for chat bubbles */
+        --violet:    #6D28D9;
+        --violet-bg: #F5F3FF;
+        --violet-bd: #DDD6FE;
+
+        --sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+        --r-xs:  4px;
+        --r-sm:  8px;
+        --r-md:  12px;
+        --r-lg:  16px;
+        --r-xl:  22px;
+        --r-2xl: 28px;
+      }
+
+      /* ── Scrollbars ── */
+      ::-webkit-scrollbar { width: 4px; height: 4px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+      ::-webkit-scrollbar-thumb:hover { background: var(--faint); }
+
+      /* ── Body ── */
+      body {
+        font-family: var(--sans);
+        background: var(--bg);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      /* ══════════════════════════════════════════════
+         ROOT LAYOUT
+      ══════════════════════════════════════════════ */
+      .root {
+        width: 100%;
+        max-width: 1440px;
+        height: var(--app-h);
+        font-size: 13px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--r-2xl);
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        grid-template-rows: 52px 1fr 62px;
+        grid-template-areas: "nav nav" "chat side" "inp inp";
+        box-shadow:
+          0 0 0 1px rgba(0,0,0,0.03),
+          0 2px 4px rgba(0,0,0,0.04),
+          0 12px 32px -4px rgba(0,0,0,0.10),
+          0 40px 80px -8px rgba(0,0,0,0.06);
+        transition: grid-template-columns 0.3s cubic-bezier(.4,0,.2,1);
+      }
+      .root[data-ui-mode="conversation"] {
+        grid-template-columns: minmax(0, 1fr) 300px;
+      }
+
+      /* ══════════════════════════════════════════════
+         NAV
+      ══════════════════════════════════════════════ */
+      .nav {
+        grid-area: nav;
+        display: flex;
+        align-items: center;
+        padding: 0 18px;
+        gap: 12px;
+        background: rgba(255,255,255,0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--border);
+        z-index: 20;
+      }
+
+      .nav-status {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        border-radius: 99px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        cursor: default;
+      }
+      .nav-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--border2);
+        flex-shrink: 0;
+        transition: background .3s;
+      }
+      .nav-dot.ready { background: var(--green); }
+      .nav-dot.busy  { background: var(--amber); animation: throb 1.4s ease-in-out infinite; }
+      .nav-dot.err   { background: var(--red); }
+
+      @keyframes throb {
+        0%,100% { opacity: 1; transform: scale(1); }
+        50%      { opacity: .4; transform: scale(1.5); }
+      }
+
+      .nav-title-text {
+        font: 500 11px var(--mono);
+        color: var(--muted);
+        letter-spacing: .01em;
+        white-space: nowrap;
+      }
+
+      .nav-brand {
+        flex: 1;
+        font: 600 14px var(--sans);
+        color: var(--ink);
+        letter-spacing: -.03em;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .nav-brand-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--amber);
+        flex-shrink: 0;
+      }
+
+      .nav-tabs {
+        display: flex;
+        gap: 2px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        padding: 3px;
+      }
+      .ntab {
+        font: 500 11px var(--sans);
+        padding: 4px 11px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        transition: all .15s;
+        letter-spacing: .01em;
+      }
+      .ntab.on {
+        background: var(--surface);
+        color: var(--ink);
+        box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 0 0 1px var(--border);
+      }
+      .ntab:hover:not(.on) { color: var(--ink-2); }
+
+      /* ══════════════════════════════════════════════
+         CHAT
+      ══════════════════════════════════════════════ */
+      .chat {
+        grid-area: chat;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 28px 28px 16px;
+        overflow-y: auto;
+        background: var(--bg);
+        border-right: 1px solid var(--border);
+      }
+
+      .msg {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        max-width: 80%;
+        animation: msgIn .25s cubic-bezier(.22,1,.36,1) both;
+      }
+      @keyframes msgIn {
+        from { opacity: 0; transform: translateY(8px) scale(.985); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .msg.user   { align-self: flex-end; }
+      .msg.agent  { align-self: flex-start; }
+      .msg.system { align-self: center; max-width: 92%; }
+
+      .msg-role {
+        font: 700 9px var(--sans);
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--faint);
+        padding: 0 4px;
+      }
+      .msg.user  .msg-role { text-align: right; color: rgba(29,78,216,.55); }
+      .msg.agent .msg-role { color: rgba(21,128,61,.6); }
+
+      .msg-text {
+        font-size: 14px;
+        line-height: 1.65;
+        padding: 13px 17px;
+        border-radius: var(--r-lg);
+        word-break: break-word;
+        white-space: pre-wrap;
+      }
+      .msg.user .msg-text {
+        background: var(--blue-mid);
+        color: #fff;
+        border-bottom-right-radius: 4px;
+        box-shadow: 0 2px 12px rgba(29,78,216,.18);
+      }
+      .msg.user .msg-text a    { color: rgba(255,255,255,.8); text-decoration: underline; }
+      .msg.user .msg-text code { background: rgba(255,255,255,.18); }
+      .msg.user .msg-text pre  { background: rgba(0,0,0,.15); border: none; color: #fff; }
+
+      .msg.agent .msg-text {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-bottom-left-radius: 4px;
+        color: var(--ink);
+        box-shadow: 0 1px 4px rgba(0,0,0,.04);
+      }
+      .msg.system .msg-text {
+        background: transparent;
+        color: var(--faint);
+        font: 11px var(--mono);
+        text-align: center;
+        padding: 5px 14px;
+        border-radius: 99px;
+        border: 1px dashed var(--border2);
+      }
+
+      /* Markdown */
+      .msg-text p { margin: 0 0 10px; }
+      .msg-text p:last-child { margin-bottom: 0; }
+      .msg-text h1,.msg-text h2,.msg-text h3 {
+        font: 700 1em var(--sans); letter-spacing: -.01em;
+        margin: 14px 0 6px;
+      }
+      .msg-text h1:first-child,.msg-text h2:first-child,.msg-text h3:first-child { margin-top:0; }
+      .msg-text ul,.msg-text ol { margin: 0 0 10px 20px; }
+      .msg-text li { margin: 0 0 4px; }
+      .msg-text code { font: 11px var(--mono); background: var(--surface3); padding: 2px 5px; border-radius: 4px; }
+      .msg-text pre {
+        font: 11px/1.6 var(--mono); background: var(--surface3);
+        border: 1px solid var(--border); border-radius: var(--r-sm);
+        padding: 11px 13px; overflow-x: auto; margin: 0 0 10px;
+      }
+      .msg-text table { width: 100%; border-collapse: collapse; margin: 0 0 10px; font-size: 12px; }
+      .msg-text th,.msg-text td { border: 1px solid var(--border2); padding: 7px 10px; }
+      .msg-text th { background: var(--surface3); font-weight: 600; text-align: left; }
+      .msg-text a { color: var(--blue-mid); text-decoration: none; font-weight: 500; }
+      .msg-text a:hover { text-decoration: underline; }
+
+      .cursor {
+        display: inline-block; width: 7px; height: 14px;
+        background: currentColor; opacity: .5; vertical-align: middle;
+        animation: blink 1s step-end infinite;
+      }
+      @keyframes blink { 0%,100%{opacity:.5}50%{opacity:0} }
+
+      .launch-inline {
+        display: inline-flex; align-items: center; gap: 6px;
+        margin-top: 10px; padding: 8px 14px;
+        border-radius: var(--r-sm);
+        background: var(--surface); border: 1px solid var(--border);
+        font: 500 12px var(--sans); color: var(--ink);
+        cursor: pointer; transition: all .2s;
+        box-shadow: 0 1px 2px rgba(0,0,0,.05);
+      }
+      .launch-inline:hover,.launch-inline.go {
+        border-color: var(--amber-bd); color: var(--amber);
+        box-shadow: 0 4px 10px rgba(180,83,9,.08);
+      }
+
+      /* ══════════════════════════════════════════════
+         SIDE SHELL
+      ══════════════════════════════════════════════ */
+      .side {
+        grid-area: side;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: var(--surface);
+      }
+
+      .side-panel {
+        flex: 1; overflow-y: auto;
+        padding: 18px 16px; display: none;
+      }
+      .side-panel.on {
+        display: flex; flex-direction: column;
+        animation: fadeIn .18s ease-out;
+      }
+      @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+      /* ══════════════════════════════════════════════
+         PLAN PANEL ELEMENTS
+      ══════════════════════════════════════════════ */
+      .ps-label {
+        font: 700 9px var(--sans);
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        color: var(--faint);
+        margin-bottom: 10px;
+      }
+
+      .sel, .mini-input {
+        width: 100%;
+        margin: 0 0 8px;
+        padding: 8px 10px;
+        border-radius: var(--r-sm);
+        border: 1px solid var(--border);
+        background: var(--surface2);
+        color: var(--ink);
+        font: 12px var(--sans);
+        transition: border-color .15s, box-shadow .15s;
+        -webkit-appearance: none;
+      }
+      .sel:focus, .mini-input:focus {
+        outline: none;
+        border-color: var(--blue-mid);
+        box-shadow: 0 0 0 3px var(--blue-bg);
+        background: var(--surface);
+      }
+
+      .plan-divider { height: 1px; background: var(--border); margin: 14px 0; border: none; }
+
+      .plan-compact {
+        display: none;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        padding: 12px;
+        margin-bottom: 14px;
+      }
+      .compact-line { font: 12px var(--sans); color: var(--muted); margin-bottom: 6px; line-height: 1.5; }
+      .compact-line:last-child { margin-bottom: 0; }
+      .compact-line strong { color: var(--ink); font-weight: 600; }
+
+      .root[data-ui-mode="conversation"] .plan-compact { display: block; }
+      .root[data-ui-mode="conversation"] .planner-detail { display: none; }
+
+      .plan-section { margin-bottom: 14px; }
+      .ps-row {
+        display: flex; justify-content: space-between; align-items: flex-start;
+        gap: 10px; padding: 7px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .ps-row:last-child { border-bottom: none; }
+      .ps-key { font: 500 11px var(--sans); color: var(--muted); flex-shrink: 0; }
+      .ps-val { font: 11px var(--mono); color: var(--ink); text-align: right; word-break: break-word; max-width: 65%; }
+      .ps-val.empty { color: var(--border2); }
+
+      .plan-status {
+        font: 700 9px var(--sans);
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--faint);
+        text-align: center;
+        padding: 10px 0;
+      }
+      .plan-status.complete { color: var(--green); }
+
+      /* Goal list */
+      .goal-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+      .goal-item {
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        background: var(--surface);
+        transition: border-color .15s;
+      }
+      .goal-item:hover { border-color: var(--border2); }
+      .goal-item.satisfied { border-color: var(--green-bd); background: var(--green-bg); }
+      .goal-item-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+      .goal-item-id { font: 600 10px var(--mono); color: var(--muted); }
+      .goal-item.satisfied .goal-item-id { color: var(--green); }
+      .goal-item-status { font: 600 10px var(--sans); color: var(--muted); text-transform: capitalize; }
+      .goal-item.satisfied .goal-item-status { color: var(--green); font-weight: 700; }
+      .goal-item-label { font: 600 12px/1.4 var(--sans); color: var(--ink); margin-top: 5px; }
+      .goal-item-objective {
+        font: 11px/1.5 var(--sans); color: var(--muted);
+        margin-top: 6px; padding: 7px 9px;
+        border-radius: var(--r-xs); background: rgba(0,0,0,0.03);
+        border: 1px solid var(--border);
+      }
+      .goal-item.satisfied .goal-item-objective { background: rgba(255,255,255,.7); border-color: var(--green-bd); }
+      .goal-item-meta { font: 10px var(--mono); color: var(--faint); margin-top: 6px; }
+      .goal-item-findings { font: 500 10px var(--sans); color: var(--green); margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+      .goal-item-filters { font: 10px/1.4 var(--mono); color: var(--muted); margin-top: 6px; white-space: pre-wrap; }
+
+      /* Proposal/trace boxes */
+      .trace-proposal {
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        background: var(--surface2);
+        margin-top: 8px;
+      }
+      .trace-proposal-summary { font: 12px/1.5 var(--sans); color: var(--ink); white-space: pre-wrap; }
+      .goal-trace-pre { font: 10px/1.6 var(--mono); color: var(--muted); white-space: pre-wrap; }
+
+      /* Buttons */
+      .launch-btn {
+        width: 100%; margin-top: 8px;
+        padding: 11px;
+        border-radius: var(--r-sm);
+        border: none;
+        background: var(--amber);
+        font: 600 13px var(--sans);
+        color: #fff;
+        cursor: pointer;
+        transition: all .2s;
+        box-shadow: 0 2px 8px rgba(180,83,9,.2);
+        letter-spacing: -.01em;
+      }
+      .launch-btn:hover:not(:disabled) { background: #92400E; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(180,83,9,.24); }
+      .launch-btn:disabled { background: var(--surface3); color: var(--faint); cursor: not-allowed; box-shadow: none; }
+
+      #load-session-btn {
+        width: 100%; margin-bottom: 10px;
+        padding: 8px 12px;
+        border-radius: var(--r-sm);
+        border: 1px solid var(--border);
+        background: var(--surface2);
+        font: 500 12px var(--sans); color: var(--ink);
+        cursor: pointer; transition: all .15s;
+      }
+      #load-session-btn:hover { background: var(--surface); border-color: var(--border2); }
+      #load-session-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+      /* ══════════════════════════════════════════════
+         TRACE PANEL — BEAUTIFUL TIMELINE
+      ══════════════════════════════════════════════ */
+      #trace-list {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .trace-item {
+        position: relative;
+        display: flex;
+        gap: 0;
+        padding: 0 0 20px 34px;
+      }
+      .trace-item:last-child { padding-bottom: 4px; }
+
+      /* Vertical line */
+      .trace-item::before {
+        content: '';
+        position: absolute;
+        left: 10px;
+        top: 26px;
+        bottom: 0;
+        width: 1px;
+        background: linear-gradient(to bottom, var(--border2) 0%, var(--border) 100%);
+      }
+      .trace-item:last-child::before { display: none; }
+
+      /* Icon node */
+      .ti-icon {
+        position: absolute;
+        left: 0; top: 1px;
+        width: 21px; height: 21px;
+        border-radius: 50%;
+        border: 1.5px solid var(--border2);
+        display: flex; align-items: center; justify-content: center;
+        font: 700 9px var(--sans);
+        background: var(--surface);
+        color: var(--muted);
+        z-index: 2;
+        transition: all .2s;
+      }
+      .ti-icon.ok   { border-color: var(--green-bd); color: var(--green); background: var(--green-bg); }
+      .ti-icon.warn { border-color: var(--amber-bd); color: var(--amber); background: var(--amber-bg); }
+      .ti-icon.err  { border-color: var(--red-bd);   color: var(--red);   background: var(--red-bg); }
+
+      .ti-body { flex: 1; min-width: 0; }
+      .ti-head {
+        display: flex; align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px; margin-bottom: 2px;
+      }
+      .ti-action {
+        font: 600 12px var(--sans);
+        color: var(--ink);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .ti-url, .ti-meta {
+        font: 10px var(--mono); color: var(--faint);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        margin-top: 2px;
+      }
+
+      /* Stage badge */
+      .ti-stage {
+        display: inline-flex; align-items: center;
+        padding: 2px 7px;
+        border-radius: 99px;
+        border: 1px solid var(--border);
+        background: var(--surface2);
+        font: 700 8px var(--sans);
+        letter-spacing: .05em;
+        text-transform: uppercase;
+        color: var(--muted);
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .ti-stage.ok   { border-color: var(--green-bd); color: var(--green); background: var(--green-bg); }
+      .ti-stage.warn { border-color: var(--amber-bd); color: var(--amber); background: var(--amber-bg); }
+      .ti-stage.err  { border-color: var(--red-bd);   color: var(--red);   background: var(--red-bg); }
+
+      /* LLM call block — violet accent */
+      .ti-llm {
+        margin-top: 8px;
+        border: 1px solid var(--violet-bd);
+        border-radius: var(--r-sm);
+        background: var(--violet-bg);
+        overflow: hidden;
+      }
+      .ti-llm-label {
+        font: 700 8px var(--sans);
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        color: var(--violet);
+        padding: 7px 10px 2px;
+      }
+      .ti-llm-text {
+        font: 10px/1.6 var(--mono);
+        color: var(--ink-2);
+        white-space: pre-wrap; word-break: break-word;
+        padding: 2px 10px 8px;
+        max-height: 140px; overflow-y: auto;
+      }
+      .ti-llm-text + .ti-llm-label { padding-top: 2px; border-top: 1px solid var(--violet-bd); }
+      .ti-llm-toggle {
+        display: block; width: 100%;
+        padding: 5px 10px;
+        border: none; border-top: 1px solid var(--violet-bd);
+        background: rgba(109,40,217,.04);
+        font: 500 9px var(--sans); color: var(--violet);
+        cursor: pointer; transition: background .15s;
+        text-align: left;
+      }
+      .ti-llm-toggle:hover { background: rgba(109,40,217,.09); }
+
+      /* Evidence cards embedded in trace */
+      .trace-card {
+        margin-top: 8px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        box-shadow: 0 1px 3px rgba(0,0,0,.04);
+      }
+      .trace-shot {
+        display: block; width: 100%;
+        max-height: 160px; object-fit: cover;
+        border-radius: var(--r-xs);
+        border: 1px solid var(--border);
+        margin-top: 8px;
+      }
+      .trace-summary {
+        font: 12px/1.5 var(--sans); color: var(--ink);
+        white-space: pre-wrap; word-break: break-word;
+        margin-top: 5px;
+      }
+
+      /* ══════════════════════════════════════════════
+         EVIDENCE PANEL — KIND-CODED CARDS
+      ══════════════════════════════════════════════ */
+      #ev-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .ev-item {
+        border-radius: var(--r-md);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        overflow: hidden;
+        transition: border-color .15s, box-shadow .15s;
+      }
+      .ev-item:hover { border-color: var(--border2); box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+
+      /* Color stripe on top per kind — applied via CSS data approach */
+      .ev-item-inner {
+        padding: 11px 12px;
+        border-top: 3px solid var(--border);
+      }
+      /* We can't dynamically set border color per kind via CSS alone without JS, 
+         so we use a versatile approach — the JS adds ev-kind text; we'll theme the
+         stripe using a wrapper class applied by the JS generateHTML for ev-item.
+         Since JS is unchanged, we style the .ev-kind label itself with a badge. */
+
+      .ev-kind {
+        font: 700 9px var(--sans);
+        letter-spacing: .07em;
+        text-transform: uppercase;
+        margin-bottom: 7px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 8px;
+        border-radius: 99px;
+        background: var(--surface3);
+        color: var(--muted);
+        border: 1px solid var(--border);
+      }
+
+      /* Since we can't inspect text content via CSS easily, give ev-item a clean universal style */
+      .ev-text {
+        font: 13px/1.6 var(--sans);
+        color: var(--ink);
+        word-break: break-word;
+        white-space: pre-wrap;
+        margin-bottom: 6px;
+      }
+      .ev-src, .ev-meta {
+        font: 10px var(--mono); color: var(--faint);
+        margin-top: 4px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+
+      /* Detail grid (evidence rows) */
+      .ev-grid {
+        margin-top: 8px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-xs);
+        overflow: hidden;
+        background: var(--surface2);
+      }
+      .ev-row { display: flex; }
+      .ev-row span {
+        padding: 4px 8px;
+        font: 10px var(--mono);
+        border-bottom: 1px solid var(--border);
+      }
+      .ev-row:last-child span { border-bottom: none; }
+      .ev-row span:first-child {
+        color: var(--faint); white-space: nowrap;
+        border-right: 1px solid var(--border);
+        min-width: 90px; flex-shrink: 0;
+      }
+      .ev-row span:last-child { color: var(--ink-2); word-break: break-all; flex: 1; }
+
+      /* ══════════════════════════════════════════════
+         LEDGER PANEL — STRUCTURED DATA
+      ══════════════════════════════════════════════ */
+      .ledger-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .ledger-card {
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        background: var(--surface2);
+      }
+      .ledger-title {
+        font: 700 8px var(--sans);
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        color: var(--faint);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .ledger-title::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
+      .ledger-value { font: 11px/1.75 var(--mono); color: var(--ink); }
+
+      .ledger-list { display: flex; flex-direction: column; }
+      .ledger-row {
+        display: flex; justify-content: space-between; align-items: center;
+        gap: 8px; padding: 5px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .ledger-row:last-child { border-bottom: none; }
+      .ledger-row span:first-child { font: 10px var(--mono); color: var(--muted); }
+      .ledger-row span:last-child { font: 600 11px var(--mono); color: var(--ink); }
+
+      /* Evidence in ledger — timeline */
+      .ledger-evidence-table { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
+      .ledger-ev {
+        padding: 9px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        position: relative;
+        overflow: hidden;
+      }
+      .ledger-ev::before {
+        content: '';
+        position: absolute;
+        left: 0; top: 0; bottom: 0;
+        width: 3px;
+        background: var(--border2);
+        border-radius: var(--r-md) 0 0 var(--r-md);
+      }
+      .ledger-ev-head {
+        display: flex; justify-content: space-between; gap: 8px; margin-bottom: 5px;
+      }
+      .ledger-ev-head span:first-child {
+        font: 700 9px var(--sans); letter-spacing: .07em;
+        text-transform: uppercase; color: var(--blue-mid);
+      }
+      .ledger-ev-head span:last-child { font: 9px var(--mono); color: var(--faint); }
+      .ledger-ev-body { font: 10px/1.55 var(--mono); color: var(--muted); white-space: pre-wrap; word-break: break-word; }
+
+      .ledger-json {
+        font: 10px/1.65 var(--mono); color: var(--muted);
+        background: var(--surface2); border: 1px solid var(--border);
+        border-radius: var(--r-xs);
+        padding: 10px 12px;
+        overflow-x: auto; max-height: 180px;
+        white-space: pre-wrap;
+      }
+
+      /* ══════════════════════════════════════════════
+         INPUT BAR
+      ══════════════════════════════════════════════ */
+      .inp-row {
+        grid-area: inp;
+        display: flex; align-items: center;
+        gap: 8px; padding: 0 16px;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+      }
+
+      .inp {
+        flex: 1;
+        font: 14px var(--sans);
+        background: var(--surface2);
+        border: 1px solid transparent;
+        border-radius: var(--r-sm);
+        padding: 11px 15px;
+        color: var(--ink);
+        outline: none;
+        transition: all .15s;
+      }
+      .inp:focus {
+        background: var(--surface);
+        border-color: var(--blue-mid);
+        box-shadow: 0 0 0 3px var(--blue-bg);
+      }
+      .inp::placeholder { color: var(--faint); }
+
+      .sbtn {
+        font: 500 12px var(--sans);
+        padding: 9px 15px;
+        border-radius: var(--r-sm);
+        border: 1px solid var(--border);
+        background: var(--surface2);
+        color: var(--ink);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all .15s;
+      }
+      .sbtn:hover:not(:disabled) { background: var(--surface); border-color: var(--border2); }
+      .sbtn:disabled { opacity: .4; cursor: not-allowed; }
+
+      #sbtn {
+        background: var(--blue-mid); color: #fff;
+        border-color: var(--blue-mid);
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(37,99,235,.2);
+      }
+      #sbtn:hover:not(:disabled) { background: var(--blue); border-color: var(--blue); }
+
+      /* Empty state */
+      .empty-hint {
+        font: 11px var(--sans);
+        color: var(--faint);
+        text-align: center;
+        padding: 28px 0;
+        font-style: italic;
+        letter-spacing: .01em;
+      }
+
+      /* ══════════════════════════════════════════════
+         RESPONSIVE
+      ══════════════════════════════════════════════ */
+      @media (max-width: 860px) {
+        body { padding: 0; background: var(--surface); }
+        .root {
+          grid-template-columns: 1fr;
+          grid-template-rows: 52px minmax(300px, 1fr) 280px 62px;
+          grid-template-areas: "nav" "chat" "side" "inp";
+          border-radius: 0;
+          height: 100vh;
+        }
+        .chat { border-right: none; border-bottom: 1px solid var(--border); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="root" id="root" data-ui-mode="conversation">
+
+      <!-- ── NAV ── -->
+      <div class="nav">
+        <div class="nav-status">
+          <div class="nav-dot ready" id="nd"></div>
+          <span class="nav-title-text" id="ntitle">graph-mapper · conversation</span>
+        </div>
+        <div class="nav-brand">
+          <div class="nav-brand-dot"></div>
+          Graph Mapper
+        </div>
+        <div class="nav-tabs">
+          <button class="ntab on" data-panel="plan">plan</button>
+          <button class="ntab" data-panel="trace">trace</button>
+          <button class="ntab" data-panel="ev">evidence</button>
+          <button class="ntab" data-panel="ledger">ledger</button>
+        </div>
+      </div>
+
+      <!-- ── CHAT ── -->
+      <div class="chat" id="chat"></div>
+
+      <!-- ── SIDE ── -->
+      <div class="side">
+
+        <!-- PLAN PANEL -->
+        <div class="side-panel on" id="panel-plan">
+          <div class="ps-label">config</div>
+          <select class="sel" id="profile"></select>
+          <select class="sel" id="recent-sessions">
+            <option value="">recent sessions</option>
+          </select>
+          <button class="sbtn" id="load-session-btn" style="width:100%;margin-bottom:10px;">
+            Load session
+          </button>
+          <input class="mini-input" id="entry-url" placeholder="entry_url" />
+          <input class="mini-input" id="source-namespace" placeholder="namespace" />
+          <select class="sel" id="ocr-mode">
+            <option value="text">ocr: text</option>
+            <option value="table">ocr: table</option>
+            <option value="figure">ocr: figure</option>
+          </select>
+
+          <div class="plan-divider"></div>
+
+          <!-- Compact view (conversation mode) -->
+          <div class="plan-compact" id="plan-compact">
+            <div class="compact-line"><strong>Goal:</strong> <span id="compact-goal">—</span></div>
+            <div class="compact-line"><strong>Mode:</strong> <span id="compact-mode">—</span></div>
+            <div class="compact-line"><strong>Status:</strong> <span id="compact-status">conversation</span></div>
+          </div>
+
+          <!-- Detailed plan (planner/running mode) -->
+          <div class="ps-label">research plan</div>
+          <div class="plan-section planner-detail">
+            <div class="ps-row"><span class="ps-key">request</span><span class="ps-val empty" id="p-raw-goal">—</span></div>
+            <div class="ps-row"><span class="ps-key">goal</span><span class="ps-val empty" id="p-goal">—</span></div>
+            <div class="ps-row"><span class="ps-key">intent</span><span class="ps-val empty" id="p-goal-intent">—</span></div>
+            <div class="ps-row"><span class="ps-key">entry_url</span><span class="ps-val empty" id="p-url">—</span></div>
+            <div class="ps-row"><span class="ps-key">namespace</span><span class="ps-val empty" id="p-ns">—</span></div>
+            <div class="ps-row"><span class="ps-key">mode</span><span class="ps-val empty" id="p-mode">—</span></div>
+            <div class="ps-row"><span class="ps-key">goals</span><span class="ps-val empty" id="p-goals-count">—</span></div>
+            <div class="goal-list" id="goal-list">
+              <div class="empty-hint">no active goals yet</div>
+            </div>
+          </div>
+
+          <div class="plan-divider planner-detail"></div>
+          <div class="ps-label">goal trace</div>
+          <div class="plan-section planner-detail">
+            <div class="ps-row"><span class="ps-key">proposal</span><span class="ps-val empty" id="p-proposal-id">—</span></div>
+            <div class="ps-row"><span class="ps-key">version</span><span class="ps-val empty" id="p-proposal-version">—</span></div>
+            <div class="ps-row"><span class="ps-key">status</span><span class="ps-val empty" id="p-proposal-status">—</span></div>
+            <div class="ps-row"><span class="ps-key">planner notes</span><span class="ps-val empty" id="p-planning-notes">—</span></div>
+            <div class="trace-proposal" id="proposal-summary-box">
+              <div class="empty-hint">no summary yet</div>
+            </div>
+            <div class="trace-proposal" id="goal-trace-box">
+              <div class="empty-hint">no goal trace yet</div>
+            </div>
+          </div>
+
+          <div class="plan-divider planner-detail"></div>
+          <div class="ps-label">models</div>
+          <div class="plan-section planner-detail">
+            <div class="ps-row"><span class="ps-key">primary</span><span class="ps-val empty" id="p-llm">—</span></div>
+            <div class="ps-row"><span class="ps-key">ocr/visual</span><span class="ps-val empty" id="p-ocr">—</span></div>
+            <div class="ps-row"><span class="ps-key">validation</span><span class="ps-val empty" id="p-val">—</span></div>
+          </div>
+
+          <div class="plan-divider planner-detail"></div>
+          <div class="ps-label">policy</div>
+          <div class="plan-section planner-detail">
+            <div class="ps-row"><span class="ps-key">download</span><span class="ps-val empty" id="p-dl">—</span></div>
+            <div class="ps-row"><span class="ps-key">persistence</span><span class="ps-val empty" id="p-persist">—</span></div>
+            <div class="ps-row"><span class="ps-key">decider</span><span class="ps-val empty" id="p-decider">—</span></div>
+            <div class="ps-row"><span class="ps-key">planner</span><span class="ps-val empty" id="p-planner">—</span></div>
+          </div>
+
+          <div class="plan-divider planner-detail"></div>
+          <div class="plan-status" id="plan-status">incomplete</div>
+          <button class="launch-btn" id="launch-btn" disabled>
+            Launch research →
+          </button>
+        </div>
+
+        <!-- TRACE PANEL -->
+        <div class="side-panel" id="panel-trace">
+          <div class="ps-label">live trace</div>
+          <div id="trace-list">
+            <div class="empty-hint">no activity yet</div>
+          </div>
+        </div>
+
+        <!-- EVIDENCE PANEL -->
+        <div class="side-panel" id="panel-ev">
+          <div class="ps-label">evidence</div>
+          <div id="ev-list">
+            <div class="empty-hint">no evidence yet</div>
+          </div>
+        </div>
+
+        <!-- LEDGER PANEL -->
+        <div class="side-panel" id="panel-ledger">
+          <div class="ps-label">ledger</div>
+          <div id="ledger-view">
+            <div class="empty-hint">no data yet</div>
+          </div>
+        </div>
+
+      </div><!-- /side -->
+
+      <!-- ── INPUT ROW ── -->
+      <div class="inp-row">
+        <input class="inp" id="inp"
+          placeholder="Type here to define your research…"
+          autocomplete="off" />
+        <button class="sbtn" id="clear-btn">New</button>
+        <button class="sbtn" id="sbtn">Send ↵</button>
+      </div>
+
+    </div><!-- /root -->
+
+    <script>
+      // ======================================================================
+      // STATE
+      // ======================================================================
+      const state = {
+        profiles: {{ profiles|tojson }},
+        selectedProfile: null,
+        recentSessions: [],
+        draftMessages:[],
+        plan: {
+          rawGoal: null, goal: null, goalTrace: null, goalIntent: null,
+          proposalId: null, proposalVersion: null, proposalStatus: null,
+          proposalSummary: null, planningNotes: null, goalConditions:[],
+          goalProgress: null, hasStructuredPlan: false,
+          launchReady: false, launchReadyEffective: false,
+          planState: "conversation",
+          url: null, ns: null, mode: null, llm: null, ocr: null,
+          ocrMode: 'text', val: null, dl: null,
+          allowArtifactDownload: true, persist: null,
+          decider: null, planner: null, followUpContext: {}
+        },
+        ledger: { session: null, run: null, evidence:[] },
+        currentJobId: null, currentRunId: null, currentSessionId: null,
+        pollTimer: null, launched: false, busy: false, uiMode: 'conversation'
+      };
+
+      const $ = (id) => document.getElementById(id);
+      const chatEl=$("chat"), inp=$("inp"), sendBtn=$("sbtn"), clearBtn=$("clear-btn"),
+            launchBtn=$("launch-btn"), loadSessionBtn=$("load-session-btn"),
+            recentSessionsEl=$("recent-sessions"), entryUrlEl=$("entry-url"),
+            nsEl=$("source-namespace"), ocrModeEl=$("ocr-mode"),
+            profileEl=$("profile"), rootEl=$("root");
+
+      window.addEventListener("error",(event)=>{
+        console.error("ui_error",event.error||event.message||event);
+        try{addDraftMessage("system",`UI error: ${String((event&&event.message)||event.error||event)}`);}catch(_){}
+      });
+      window.addEventListener("unhandledrejection",(event)=>{
+        console.error("ui_rejection",event.reason||event);
+        try{addDraftMessage("system",`UI rejection: ${String((event&&event.reason)||event)}`);}catch(_){}
+      });
+
+      function boot(){
+        try{renderProfiles();}catch(e){console.error("boot_render_profiles_error",e);}
+        try{bindEvents();}catch(e){console.error("boot_bind_events_error",e);}
+        try{if(Array.isArray(state.profiles)&&state.profiles.length) applyProfile(state.profiles[0].name);}catch(e){console.error("boot_apply_profile_error",e);}
+        try{fetchRecentSessions();}catch(e){console.error("boot_recent_sessions_error",e);}
+        try{addDraftMessage("agent","Hi. I am your research agent. Tell me what you want to investigate and while we talk, I will be building the plan on the right side.");}catch(e){console.error("boot_greeting_error",e);}
+        try{renderPlan();}catch(e){console.error("boot_render_plan_error",e);try{addDraftMessage("system",String(e.message||e));}catch(_){}}
+      }
+
+      function bindEvents(){
+        if(sendBtn) sendBtn.addEventListener("click",sendMessage);
+        if(clearBtn) clearBtn.addEventListener("click",resetConversation);
+        if(launchBtn) launchBtn.addEventListener("click",launchRun);
+        if(loadSessionBtn) loadSessionBtn.addEventListener("click",loadSelectedSession);
+        if(inp) inp.addEventListener("keydown",(e)=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();}});
+        if(profileEl) profileEl.addEventListener("change",(e)=>applyProfile(e.target.value));
+        if(ocrModeEl) ocrModeEl.addEventListener("change",(e)=>{state.plan.ocrMode=e.target.value||'text';renderPlan();});
+        document.querySelectorAll(".ntab").forEach((btn)=>btn.addEventListener("click",()=>showPanel(btn.dataset.panel,btn)));
+      }
+
+      function renderProfiles(){
+        if(!profileEl) return;
+        profileEl.innerHTML=state.profiles.map((p)=>`<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join("");
+      }
+
+      function renderRecentSessions(){
+        if(!recentSessionsEl) return;
+        const current=recentSessionsEl.value;
+        const safeItems=Array.isArray(state.recentSessions)?state.recentSessions.filter((item)=>item&&typeof item==="object"):[];
+        const options=['<option value="">recent sessions</option>'].concat(safeItems.map((item)=>`<option value="${escapeHtmlAttr(item.session_id||'')}">${escapeHtml(sessionPreview(item))}</option>`));
+        recentSessionsEl.innerHTML=options.join("");
+        if(current&&safeItems.some((item)=>item.session_id===current)) recentSessionsEl.value=current;
+      }
+
+      async function safeFetchJson(url,options){
+        const response=await fetch(url,options);
+        const rawText=await response.text();
+        let data=null;
+        if(rawText){try{data=JSON.parse(rawText);}catch(e){throw new Error(rawText||`Invalid response for ${url}`);}}
+        else{data={};}
+        if(!response.ok) throw new Error((data&&(data.error||data.message))||rawText||`Request failed: ${url}`);
+        return data;
+      }
+
+      async function fetchRecentSessions(){
+        try{
+          const data=await safeFetchJson('/api/sessions?limit=20');
+          state.recentSessions=Array.isArray(data.items)?data.items:[];
+          renderRecentSessions();
+        }catch(e){
+          console.error('recent_sessions_error',e);
+          state.recentSessions=[];
+          renderRecentSessions();
+          addDraftMessage("system",String(e.message||e));
+        }
+      }
+
+      function sessionPreview(item){
+        const kind=String(item.session_kind||'session');
+        const sid=String(item.session_id||'').trim();
+        const preview=extractSessionPreview(item);
+        return preview?`${sid} · ${kind} · ${preview}`:`${sid} · ${kind}`;
+      }
+
+      function extractSessionPreview(item){
+        const content=item.last_message_content_json||{};
+        if(typeof content==='string') return trimLong(content,80);
+        if(content&&typeof content==='object'){return trimLong(String(content.answer||content.summary||content.text||content.goal||''),80);}
+        return '';
+      }
+
+      async function loadSelectedSession(){
+        const sessionId=recentSessionsEl&&recentSessionsEl.value?recentSessionsEl.value.trim():'';
+        if(!sessionId||state.busy) return;
+        state.busy=true; sendBtn.disabled=true;
+        if(loadSessionBtn) loadSessionBtn.disabled=true;
+        setBusy('busy','graph-mapper · loading session…');
+        try{
+          const data=await safeFetchJson('/api/plan/load-session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId,profile_name:profileEl.value})});
+          state.currentSessionId=sessionId;
+          state.currentJobId=null;
+          state.currentRunId=data.last_run_id||null;
+          state.launched=false;
+          stopPolling();
+          if(data.state&&data.state.plan) applyPlan(data.state.plan);
+          if(data.state&&data.state.messages) setDraftMessages(data.state.messages);
+          state.ledger.session=data.session||null;
+          state.ledger.run=null;
+          state.ledger.evidence=[];
+          if(state.plan.url) entryUrlEl.value=state.plan.url;
+          if(state.plan.ns) nsEl.value=state.plan.ns;
+          if(state.currentRunId){
+            const runData=await safeFetchJson(`/api/runs/${encodeURIComponent(state.currentRunId)}`);
+            state.ledger.run=runData;
+            const evData=await safeFetchJson(`/api/evidence?run_id=${encodeURIComponent(state.currentRunId)}&limit=80`);
+            state.ledger.evidence=evData.items||[];
+            renderEvidence(state.ledger.evidence);
+            if(state.ledger.run){renderTrace(state.ledger.run,state.ledger.evidence);}
+          }else{
+            renderEvidence([]);
+            $("trace-list").innerHTML='<div class="empty-hint">no activity yet</div>';
+          }
+          renderLedger();
+          setUiMode((data.state&&data.state.suggested_mode)||'conversation');
+        }catch(e){
+          addDraftMessage('system',String(e.message||e));
+          setBusy('err','graph-mapper · error');
+        }finally{
+          state.busy=false; sendBtn.disabled=false;
+          if(loadSessionBtn) loadSessionBtn.disabled=false;
+          renderPlan(); inp.focus();
+        }
+      }
+
+      function applyProfile(name){
+        const profile=state.profiles.find((item)=>item.name===name);
+        if(!profile) return;
+        state.selectedProfile=profile;
+        entryUrlEl.value=profile.entry_url||"";
+        nsEl.value=profile.source_namespace||"generic";
+        if(ocrModeEl) ocrModeEl.value=profile.ocr_mode||'text';
+        state.plan.rawGoal=null; state.plan.goal=null; state.plan.goalTrace=null;
+        state.plan.goalIntent=null; state.plan.proposalId=null;
+        state.plan.proposalVersion=null; state.plan.proposalStatus=null;
+        state.plan.proposalSummary=null; state.plan.planningNotes=null;
+        state.plan.goalConditions=[]; state.plan.goalProgress=null;
+        state.plan.hasStructuredPlan=false; state.plan.launchReady=false;
+        state.plan.launchReadyEffective=false; state.plan.planState="conversation";
+        state.plan.url=profile.entry_url||null;
+        state.plan.ns=profile.source_namespace||"generic";
+        state.plan.mode=profile.research_mode||"collect_artifacts";
+        state.plan.llm=profile.principal_model||null;
+        state.plan.ocr=profile.ocr_model||null;
+        state.plan.ocrMode=profile.ocr_mode||'text';
+        state.plan.val=profile.validation_model||null;
+        state.plan.allowArtifactDownload=Boolean(profile.allow_artifact_download??true);
+        state.plan.dl=state.plan.allowArtifactDownload?"yes":"no";
+        state.plan.persist=profile.artifact_persistence_mode||null;
+        state.plan.decider=profile.decision_mode||"llm";
+        state.plan.planner="profile";
+        state.plan.followUpContext={};
+        renderPlan();
+      }
+
+      function showPanel(name,btn){
+        ["plan","trace","ev","ledger"].forEach((p)=>$("panel-"+p).classList.toggle("on",p===name));
+        document.querySelectorAll(".ntab").forEach((b)=>b.classList.remove("on"));
+        if(btn) btn.classList.add("on");
+      }
+
+      function setBusy(kind,text){
+        const dot=$("nd");
+        dot.className="nav-dot "+kind;
+        $("ntitle").textContent=text;
+      }
+
+      function setUiMode(mode){
+        state.uiMode=mode;
+        if(rootEl) rootEl.setAttribute("data-ui-mode",mode);
+        if(mode==="planner"){
+          showPanel("plan",document.querySelector('.ntab[data-panel="plan"]'));
+          setBusy(state.busy?'busy':'ready',"graph-mapper · planner");
+          renderCompactPlan(); return;
+        }
+        if(mode==="running"){
+          showPanel("trace",document.querySelector('.ntab[data-panel="trace"]'));
+          setBusy("busy","graph-mapper · researching…");
+          renderCompactPlan(); return;
+        }
+        showPanel("plan",document.querySelector('.ntab[data-panel="plan"]'));
+        setBusy(state.busy?'busy':'ready',"graph-mapper · conversation");
+        renderCompactPlan();
+      }
+
+      function applyPlan(plan){
+        state.plan.rawGoal=plan.raw_goal||null;
+        state.plan.goal=plan.goal||null;
+        state.plan.goalTrace=plan.goal_trace||null;
+        state.plan.goalIntent=plan.goal_intent||null;
+        state.plan.proposalId=plan.proposal_id||null;
+        state.plan.proposalVersion=plan.proposal_version??null;
+        state.plan.proposalStatus=plan.proposal_status||null;
+        state.plan.proposalSummary=plan.proposal_summary||null;
+        state.plan.planningNotes=plan.planning_notes||null;
+        state.plan.goalConditions=Array.isArray(plan.goal_conditions)?plan.goal_conditions:[];
+        state.plan.goalProgress=(plan.goal_progress&&typeof plan.goal_progress==="object")?plan.goal_progress:null;
+        state.plan.hasStructuredPlan=Boolean(plan.has_structured_plan);
+        state.plan.launchReady=Boolean(plan.launch_ready);
+        state.plan.launchReadyEffective=Boolean(plan.launch_ready_effective??plan.ready_to_launch??plan.launch_ready);
+        state.plan.planState=String(plan.plan_state||"conversation");
+        state.plan.url=plan.entry_url||null;
+        state.plan.ns=plan.source_namespace||"generic";
+        state.plan.mode=plan.research_mode||null;
+        state.plan.llm=plan.principal_model||null;
+        state.plan.ocr=plan.ocr_model||null;
+        state.plan.ocrMode=plan.ocr_mode||state.plan.ocrMode||'text';
+        state.plan.followUpContext=(plan.follow_up_context&&typeof plan.follow_up_context==="object")?plan.follow_up_context:{};
+        if(ocrModeEl&&ocrModeEl.value!==String(state.plan.ocrMode||'text')){ocrModeEl.value=String(state.plan.ocrMode||'text');}
+        state.plan.val=plan.validation_model||null;
+        state.plan.allowArtifactDownload=Boolean(plan.allow_artifact_download??true);
+        state.plan.dl=state.plan.allowArtifactDownload?"yes":"no";
+        state.plan.persist=plan.artifact_persistence_mode||null;
+        state.plan.decider=plan.decision_mode||null;
+        state.plan.planner=plan.planner_backend||null;
+        renderPlan();
+      }
+
+      function setDraftMessages(messages){
+        state.draftMessages=(messages||[]).map((item)=>({role:item.role,text:item.text,withLaunch:Boolean(item.with_launch)}));
+        renderDraftMessages();
+      }
+      function addDraftMessage(role,text,withLaunch=false){
+        state.draftMessages.push({role,text,withLaunch});
+        renderDraftMessages();
+      }
+      function renderDraftMessages(){
+        chatEl.innerHTML="";
+        for(const msg of state.draftMessages){
+          const d=document.createElement("div");
+          d.className="msg "+msg.role;
+          d.innerHTML=`<div class="msg-role">${msg.role==="agent"?"agent":msg.role==="user"?"you":"system"}</div><div class="msg-text">${renderMessageHtml(msg.text,msg.role)}</div>`;
+          if(msg.withLaunch&&!state.launched&&!state.busy){
+            const b=document.createElement("button");
+            b.className="launch-inline go";
+            b.textContent="Launch research →";
+            b.onclick=launchRun;
+            d.appendChild(b);
+          }
+          chatEl.appendChild(d);
+        }
+        chatEl.scrollTop=chatEl.scrollHeight;
+      }
+
+      function renderPlan(){
+        setPlanValue("raw-goal",state.plan.rawGoal);
+        setPlanValue("goal",state.plan.goal);
+        setPlanValue("goal-intent",state.plan.goalIntent);
+        setPlanValue("url",state.plan.url||entryUrlEl.value.trim());
+        setPlanValue("ns",state.plan.ns||nsEl.value.trim());
+        setPlanValue("mode",state.plan.mode);
+        setPlanValue("llm",state.plan.llm);
+        setPlanValue("ocr",[state.plan.ocr,state.plan.ocrMode?`mode:${state.plan.ocrMode}`:null].filter(Boolean).join(" · "));
+        if(ocrModeEl&&ocrModeEl.value!==String(state.plan.ocrMode||'text')){ocrModeEl.value=String(state.plan.ocrMode||'text');}
+        setPlanValue("val",state.plan.val);
+        setPlanValue("dl",state.plan.dl);
+        setPlanValue("persist",state.plan.persist);
+        setPlanValue("decider",state.plan.decider);
+        setPlanValue("planner",state.plan.planner);
+        const gp=state.plan.goalProgress||{};
+        const totalGoals=Number.isFinite(gp.total)?gp.total:state.plan.goalConditions.length;
+        const satisfiedGoals=Number.isFinite(gp.satisfied)?gp.satisfied:null;
+        const pendingGoals=Number.isFinite(gp.pending)?gp.pending:null;
+        let goalsCountText=null;
+        if(totalGoals){
+          goalsCountText=String(totalGoals);
+          if(satisfiedGoals!==null&&pendingGoals!==null){goalsCountText=`${totalGoals} · ok:${satisfiedGoals} · pending:${pendingGoals}`;}
+        }
+        setPlanValue("goals-count",goalsCountText);
+        setPlanValue("proposal-id",state.plan.proposalId);
+        setPlanValue("proposal-version",state.plan.proposalVersion!=null?String(state.plan.proposalVersion):null);
+        setPlanValue("proposal-status",state.plan.proposalStatus);
+        setPlanValue("planning-notes",state.plan.planningNotes);
+        renderGoalConditions();
+        renderProposalSummary();
+        renderGoalTraceBlock();
+        renderCompactPlan();
+        const ready=Boolean(state.plan.launchReadyEffective);
+        const planState=String(state.plan.planState||"conversation");
+        $("plan-status").textContent=ready?"ready to launch":planState==="draft"?"draft":"conversation";
+        $("plan-status").className="plan-status"+(ready?" complete":"");
+        launchBtn.disabled=!ready||state.busy||state.launched;
+      }
+
+      function renderCompactPlan(){
+        const goal=$("compact-goal"),mode=$("compact-mode"),status=$("compact-status");
+        if(goal) goal.textContent=(state.plan.proposalSummary||state.plan.goal||state.plan.rawGoal||"—");
+        if(mode) mode.textContent=(state.plan.mode||"—");
+        if(status){
+          const ps=String(state.plan.planState||"conversation");
+          const gp=state.plan.goalProgress||{};
+          const satisfied=Number.isFinite(gp.satisfied)?gp.satisfied:null;
+          const pending=Number.isFinite(gp.pending)?gp.pending:null;
+          if(state.uiMode==="running"){status.textContent="corriendo";return;}
+          if(ps==="ready"){status.textContent=(satisfied!==null&&pending!==null)?`ready · ok:${satisfied} · pending:${pending}`:"ready";return;}
+          if(ps==="draft"){status.textContent=(satisfied!==null&&pending!==null)?`draft · ok:${satisfied} · pending:${pending}`:"draft";return;}
+          status.textContent="conversation";
+        }
+      }
+
+      function renderGoalConditions(){
+        const el=$("goal-list");
+        const items=state.plan.goalConditions||[];
+        if(!items.length){el.innerHTML='<div class="empty-hint">no active goals yet</div>';return;}
+        el.innerHTML=items.map((item,index)=>{
+          const conditionId=String(item.condition_id||`c${index+1}`).toUpperCase();
+          const status=String(item.status||'pending');
+          const objective=formatConditionObjective(item);
+          const meta=[item.kind,item.target_kind,`requiredness:${item.requiredness||'mandatory'}`,`min_count:${item.min_count||1}`].filter(Boolean).join(' · ');
+          const filters=formatGoalFilters(item.filters||{});
+          const satisfied=status.toLowerCase()==='satisfied';
+          const findingsCount=(item.matched_finding_ids||[]).length;
+          return `<div class="goal-item ${satisfied?'satisfied':''}"><div class="goal-item-head"><div class="goal-item-id">${satisfied?'✓ ':''}${escapeHtml(conditionId)}</div><div class="goal-item-status">${escapeHtml(status)}${findingsCount>0?` (${findingsCount})`:''}</div></div><div class="goal-item-label">${escapeHtml(item.label||item.kind||'condition')}</div><div class="goal-item-objective">${escapeHtml(objective)}</div><div class="goal-item-meta">${escapeHtml(meta)}</div>${findingsCount>0?`<div class="goal-item-findings">✓ Satisfied by ${findingsCount} finding(s)</div>`:''}${filters?`<div class="goal-item-filters">${escapeHtml(filters)}</div>`:""}</div>`;
+        }).join("");
+      }
+
+      function renderProposalSummary(){
+        const el=$("proposal-summary-box");
+        if(!el) return;
+        const summary=state.plan.proposalSummary||state.plan.goalIntent||state.plan.goal||"";
+        if(!summary){el.innerHTML='<div class="empty-hint">no summary yet</div>';return;}
+        el.innerHTML=`<div class="trace-proposal-summary">${escapeHtml(summary)}</div>`;
+      }
+
+      function renderGoalTraceBlock(){
+        const el=$("goal-trace-box");
+        if(!el) return;
+        const text=formatGoalTraceText();
+        if(!text){el.innerHTML='<div class="empty-hint">no goal trace yet</div>';return;}
+        el.innerHTML=`<div class="goal-trace-pre">${escapeHtml(text)}</div>`;
+      }
+
+      function formatGoalFilters(filters){
+        if(!filters||typeof filters!=="object") return "";
+        const entries=Object.entries(filters).filter(([,v])=>v!==null&&v!==undefined&&v!=="");
+        if(!entries.length) return "";
+        return entries.map(([k,v])=>`${k}: ${Array.isArray(v)?v.join(", "):String(v)}`).join("\n");
+      }
+
+      function formatConditionObjective(condition){
+        const label=String(condition.label||condition.kind||'condition').trim();
+        const target=String(condition.target_kind||'evidence').trim();
+        const minCount=condition.min_count||1;
+        const filters=condition.filters||{};
+        const parts=[`Specific goal: collect ${minCount} evidence item(s) of type ${target}.`,label?`Validate: ${label}.`:""];
+        if(filters.year!=null) parts.push(`Year: ${filters.year}.`);
+        if(filters.document_family) parts.push(`Document family: ${filters.document_family}.`);
+        if(filters.preferred_carrier) parts.push(`Preferred carrier: ${filters.preferred_carrier}.`);
+        if(Array.isArray(filters.accepted_carriers)&&filters.accepted_carriers.length) parts.push(`Accepted carriers: ${filters.accepted_carriers.join(", ")}.`);
+        return parts.filter(Boolean).join(" ");
+      }
+
+      function formatGoalTraceText(){
+        const trace=state.plan.goalTrace||{};
+        const intentObj=trace.intent||{};
+        const proposals=Array.isArray(trace.proposals)?trace.proposals:[];
+        const activeId=trace.active_proposal_id||state.plan.proposalId;
+        const active=proposals.find((item)=>item&&item.proposal_id===activeId)||proposals[proposals.length-1]||null;
+        const conditions=active&&Array.isArray(active.conditions)?active.conditions:(state.plan.goalConditions||[]);
+        if(!state.plan.goalIntent&&!state.plan.proposalSummary&&!conditions.length) return "";
+        const lines=[];
+        lines.push("=== GOAL TRACE PROPUESTO ===");
+        const normalizedGoal=intentObj.normalized_goal||state.plan.goalIntent;
+        if(normalizedGoal) lines.push(`Intent: ${normalizedGoal}`);
+        if(state.plan.planningNotes) lines.push(`Planning notes: ${state.plan.planningNotes}`);
+        const proposalId=(active&&active.proposal_id)||state.plan.proposalId;
+        const proposalVersion=(active&&active.version)!=null?active.version:state.plan.proposalVersion;
+        const proposalStatus=(active&&active.status)||state.plan.proposalStatus;
+        const proposalSummary=(active&&active.summary)||state.plan.proposalSummary;
+        if(proposalId) lines.push(`Proposal id: ${proposalId}`);
+        if(proposalVersion!=null) lines.push(`Version: ${proposalVersion}`);
+        if(proposalStatus) lines.push(`Status: ${proposalStatus}`);
+        if(proposalSummary) lines.push(`Summary: ${proposalSummary}`);
+        lines.push("Conditions:");
+        if(!conditions.length){lines.push("- none");return lines.join("\n");}
+        for(const condition of conditions){
+          const filters=condition.filters||{};
+          const year=(filters&&filters.year!=null)?filters.year:"none";
+          const matchedCount=Array.isArray(condition.matched_finding_ids)?condition.matched_finding_ids.length:0;
+          lines.push(`- ${condition.condition_id||"c?"} | ${condition.label||condition.kind||"condition"} | ${condition.kind||"unknown"} | ${condition.target_kind||"unknown"} | requiredness=${condition.requiredness||"mandatory"} | year=${year} | min_count=${condition.min_count||1} | matched=${matchedCount}`);
+        }
+        return lines.join("\n");
+      }
+
+      function setPlanValue(key,value){
+        const el=$("p-"+key);
+        if(!el) return;
+        const text=String(value||"").trim();
+        const has=Boolean(text);
+        if(key==="raw-goal"&&has){
+          el.innerHTML=text.split("\n").map(line=>{
+            if(line.includes(":")){const [k,...v]=line.split(":");return `<div><strong style="color:var(--blue-mid);font-size:9px;text-transform:uppercase;">${escapeHtml(k)}:</strong> <span>${escapeHtml(v.join(":"))}</span></div>`;}
+            return `<div>${escapeHtml(line)}</div>`;
+          }).join("");
+        }else{el.textContent=has?value:"—";}
+        el.className="ps-val "+(has?"set":"empty");
+      }
+
+      async function sendMessage(){
+        if(state.busy) return;
+        const text=inp.value.trim();
+        if(!text) return;
+        inp.value="";
+        state.busy=true; sendBtn.disabled=true;
+        addDraftMessage("user",text);
+        setBusy("busy","graph-mapper · pensando…");
+        try{
+          let followUpContext={};
+          try{followUpContext=buildFollowUpContext();}catch(e){console.error('follow_up_context_error',e);followUpContext={};}
+          const payload={profile_name:profileEl.value,session_id:state.currentSessionId,user_message:text,entry_url:entryUrlEl.value.trim(),source_namespace:nsEl.value.trim()||"generic",follow_up_context:followUpContext};
+          const data=await safeFetchJson("/api/plan/turn",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+          state.currentSessionId=data.session_id||state.currentSessionId;
+          if(data.plan) applyPlan(data.plan);
+          if(data.messages) setDraftMessages(data.messages);
+          setUiMode(data.suggested_mode||"conversation");
+        }catch(e){addDraftMessage("system",String(e.message||e));}
+        finally{state.busy=false;sendBtn.disabled=false;renderPlan();setUiMode(state.uiMode==="running"?"running":state.uiMode);inp.focus();}
+      }
+
+      function resetConversation(){
+        state.currentJobId=null;state.currentRunId=null;state.currentSessionId=null;
+        state.launched=false;state.busy=false;state.draftMessages=[];
+        state.ledger={session:null,run:null,evidence:[]};
+        stopPolling();
+        applyProfile(profileEl.value);
+        $("trace-list").innerHTML='<div class="empty-hint">no activity yet</div>';
+        $("ev-list").innerHTML='<div class="empty-hint">no evidence yet</div>';
+        $("ledger-view").innerHTML='<div class="empty-hint">no data yet</div>';
+        addDraftMessage("agent","New session. Tell me what you want to investigate and I will start building the plan.");
+        state.uiMode='conversation';setUiMode('conversation');renderPlan();fetchRecentSessions();
+      }
+
+      document.addEventListener("click",(event)=>{
+        const btn=event.target.closest("[data-trace-toggle]");
+        if(!btn) return;
+        const targetId=btn.getAttribute("data-trace-toggle");
+        const target=document.getElementById(targetId);
+        if(!target) return;
+        const expanded=target.getAttribute("data-expanded")==="true";
+        const full=target.getAttribute("data-full")||"";
+        const short=target.getAttribute("data-short")||"";
+        target.textContent=expanded?short:full;
+        target.setAttribute("data-expanded",expanded?"false":"true");
+        btn.textContent=expanded?"show more":"show less";
+      });
+
+      async function launchRun(){
+        if(state.launched||state.busy) return;
+        state.launched=true; state.busy=true;
+        launchBtn.disabled=true; sendBtn.disabled=true;
+        addDraftMessage("system","Run started. Switching to trace...");
+        setUiMode("running");
+        const payload={
+          profile_name:profileEl.value,
+          entry_url:entryUrlEl.value.trim(),
+          user_message:(state.plan.goal||state.plan.rawGoal||"").trim(),
+          source_namespace:nsEl.value.trim()||"generic",
+          research_mode:state.plan.mode||"collect_artifacts",
+          allow_artifact_download:Boolean(state.plan.allowArtifactDownload),
+          allow_artifact_open:true,
+          ocr_mode:state.plan.ocrMode||'text'
+        };
+        if(state.currentSessionId) payload.session_id=state.currentSessionId;
+        try{
+          const data=await safeFetchJson("/api/jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+          state.currentJobId=data.job_id;
+          state.currentRunId=data.run_id;
+          state.currentSessionId=data.session_id;
+          startPolling();
+        }catch(e){
+          state.launched=false; state.busy=false; sendBtn.disabled=false;
+          addDraftMessage("system",String(e.message||e));
+          setBusy("err","graph-mapper · error");
+          renderPlan();
+        }
+      }
+
+      function startPolling(){stopPolling();pollNow();state.pollTimer=setInterval(pollNow,2000);}
+      function stopPolling(){if(state.pollTimer){clearInterval(state.pollTimer);state.pollTimer=null;}}
+
+      async function pollNow(){
+        if(!state.currentJobId) return;
+        try{
+          const job=await safeFetchJson(`/api/jobs/${encodeURIComponent(state.currentJobId)}`);
+          state.currentRunId=job.run_id||state.currentRunId;
+          state.currentSessionId=job.session_id||state.currentSessionId;
+          if(job.status==="completed"){state.launched=false;state.busy=false;sendBtn.disabled=false;setBusy("ready","graph-mapper · completado");}
+          else if(job.status==="failed"){state.launched=false;state.busy=false;sendBtn.disabled=false;setBusy("err","graph-mapper · error");}
+          else{setBusy("busy","graph-mapper · researching…");}
+          await refreshRunAndEvidence(job);
+          if(job.status==="completed"||job.status==="failed"){fetchRecentSessions();renderPlan();stopPolling();}
+        }catch(e){
+          state.launched=false;state.busy=false;sendBtn.disabled=false;
+          setBusy("err","graph-mapper · error");
+          addDraftMessage("system",String(e.message||e));
+          renderPlan();stopPolling();
+        }
+      }
+
+      async function refreshRunAndEvidence(job){
+        if(state.currentRunId){
+          let run=null;
+          try{run=await safeFetchJson(`/api/runs/${encodeURIComponent(state.currentRunId)}`);state.ledger.run=run;}catch(e){console.error('run_refresh_error',e);}
+          let evidenceItems=[];
+          try{const data=await safeFetchJson(`/api/evidence?run_id=${encodeURIComponent(state.currentRunId)}&limit=80`);evidenceItems=data.items||[];state.ledger.evidence=evidenceItems;renderEvidence(evidenceItems);}catch(e){console.error('evidence_refresh_error',e);}
+          if(state.currentSessionId){try{state.ledger.session=await safeFetchJson(`/api/sessions/${encodeURIComponent(state.currentSessionId)}`);}catch(e){console.error('session_refresh_error',e);}}
+          if(run){renderTrace(run,evidenceItems);}
+          renderLedger();
+        }
+        if((job.status==="completed"||job.status==="failed")&&job.result){
+          const preview=buildResearchPreviewMessage(job.result,state.ledger.run,state.ledger.evidence,job.status);
+          const last=state.draftMessages[state.draftMessages.length-1];
+          if(!last||last.role!=="agent"||last.text!==preview){addDraftMessage("agent",preview);}
+        }
+      }
+
+      function buildResearchPreviewMessage(result,run,evidenceItems,jobStatus){
+        const evidence=Array.isArray(evidenceItems)?evidenceItems:[];
+        const runStatus=(run&&run.status)||result.final_status||jobStatus||"unknown";
+        const steps=(run&&run.steps)||[];
+        const llmCalls=(run&&run.llm_calls)||[];
+        const downloads=evidence.filter((item)=>String(item.evidence_kind||"")==="download_result");
+        const opened=evidence.filter((item)=>String(item.evidence_kind||"")==="artifact_result");
+        const extracted=evidence.filter((item)=>String(item.evidence_kind||"")==="evidence_extraction_result");
+        const validations=evidence.filter((item)=>String(item.evidence_kind||"")==="goal_validation_result");
+        const visited=collectVisitedSources(evidence);
+        const keyEvidence=buildKeyEvidenceList(evidence);
+        const downloadedDocs=buildDownloadedDocsList(downloads,opened);
+        const lead=(result.answer||result.summary||"").trim();
+        const lines=[];
+        if(lead){lines.push(`## Model Synthesis`);lines.push("");lines.push(trimLong(lead,1400));lines.push("");}
+        lines.push(`## Research Preview`);
+        lines.push("");
+        lines.push(`**Estado:** \`${String(runStatus)}\``);
+        lines.push(`**Activity:** ${visited.length} observed links · ${downloads.length} downloads · ${opened.length} opened artifacts · ${extracted.length} extractions · ${llmCalls.length} LLM calls · ${steps.length} steps`);
+        if(downloadedDocs.length){lines.push("");lines.push(`### Documents`);for(const doc of downloadedDocs.slice(0,6)){lines.push(`- ${doc}`);}}
+        if(keyEvidence.length){lines.push("");lines.push(`### Key Evidence`);for(const item of keyEvidence.slice(0,6)){lines.push(`- ${item}`);}}
+        if(validations.length){lines.push("");lines.push(`### Validation`);for(const item of validations.slice().reverse().slice(0,3)){const content=item.content_json||{};const ids=Array.isArray(content.matched_condition_ids)?content.matched_condition_ids:[];const suffix=ids.length?` · conditions: ${ids.join(", ")}`:"";lines.push(`- ${content.status||content.validation_status||"completed"}${suffix}`);}}
+        return lines.join("\n");
+      }
+
+      function buildFollowUpContext(){
+        const run=state.ledger.run||null;
+        const evidence=Array.isArray(state.ledger.evidence)?state.ledger.evidence:[];
+        const downloads=evidence.filter((item)=>String(item.evidence_kind||"")==="download_result");
+        const opened=evidence.filter((item)=>String(item.evidence_kind||"")==="artifact_result");
+        const extracted=evidence.filter((item)=>String(item.evidence_kind||"")==="evidence_extraction_result");
+        const validations=evidence.filter((item)=>String(item.evidence_kind||"")==="goal_validation_result");
+        return{session_id:state.currentSessionId||null,run_id:state.currentRunId||null,run_status:(run&&run.status)||null,previous_goal:state.plan.goal||state.plan.rawGoal||null,preview_summary:buildResearchPreviewMessage({answer:"",summary:""},run,evidence,(run&&run.status)||"").slice(0,2200),visited_links:collectVisitedSources(evidence).slice(0,12),downloaded_documents:downloads.slice().reverse().slice(0,8).map((item)=>({source_url:item.source_url||null,local_path:item.local_path||null,title:item.title||null})),opened_artifacts:opened.slice().reverse().slice(0,8).map((item)=>({source_url:item.source_url||null,local_path:item.local_path||null,title:item.title||null})),extracted_evidence:extracted.slice().reverse().slice(0,8).map((item)=>({source_url:item.source_url||null,local_path:item.local_path||null,summary:trimLong(deriveEvidenceBody(item),260),extracted_by:(buildEvidenceDetailRows(item).find((row)=>row[0]==='extracted_by')||[])[1]||null})),validation_status:validations.slice().reverse().slice(0,6).map((item)=>{const content=item.content_json||{};return{status:content.status||content.validation_status||null,matched_condition_ids:Array.isArray(content.matched_condition_ids)?content.matched_condition_ids:[],recommended_next_step:content.recommended_next_step||null};})};
+      }
+
+      function collectVisitedSources(evidence){
+        const urls=[];const seen=new Set();
+        for(const item of evidence){const content=item.content_json||{};const url=String(item.source_url||content.source_url||content.page_url||content.download_url||"").trim();if(url&&!seen.has(url)){seen.add(url);urls.push(url);}}
+        return urls;
+      }
+
+      function buildDownloadedDocsList(downloads,opened){
+        const rows=[];const seen=new Set();
+        for(const item of [...downloads,...opened]){
+          const content=item.content_json||{};
+          const sourceUrl=String(item.source_url||content.download_url||content.final_url||"").trim();
+          const localPath=String(item.local_path||content.local_path||content.original_path||"").trim();
+          const label=String(item.title||content.artifact_kind||content.final_url||sourceUrl||localPath||"document").trim();
+          const key=`${label}|${localPath}|${sourceUrl}`;
+          if(seen.has(key)) continue;seen.add(key);
+          const parts=[label];
+          if(sourceUrl) parts.push(`[fuente](${sourceUrl})`);
+          if(localPath){const localHref=`/api/artifacts/open?path=${encodeURIComponent(localPath)}`;parts.push(`[local](${localHref})`);parts.push(`ruta: \`${localPath}\``);}
+          rows.push(parts.join(" · "));
+        }
+        return rows;
+      }
+
+      function buildKeyEvidenceList(evidence){
+        const rows=[];
+        for(const item of evidence.slice().reverse()){
+          const kind=String(item.evidence_kind||"");const content=item.content_json||{};
+          if(kind==="evidence_extraction_result"){const source=String(item.source_url||"").trim();const text=trimLong(content.text_excerpt||content.summary||content.inline_text||"",220);if(text) rows.push(`${text}${source?` · [source](${source})`:''}`);
+          }else if(kind==="artifact_result"){const source=String(item.source_url||"").trim();const text=trimLong(content.text_excerpt||content.content||"",220);if(text) rows.push(`${text}${source?` · [artifact](${source})`:''}`);
+          }else if(kind==="inspection_result"){const lp=content.local_perception||{};const text=trimLong(lp.summary||"",180);const source=String(item.source_url||content.page_url||"").trim();if(text) rows.push(`${text}${source?` · [page](${source})`:''}`);
+          }
+          if(rows.length>=8) break;
+        }
+        return rows;
+      }
+
+      function renderTrace(run,evidenceItems){
+        const c=$("trace-list");
+        const steps=(run&&run.steps)||[];
+        const llmCalls=(run&&run.llm_calls)||[];
+        const traceEvidenceKinds=['inspection_result','goal_validation_result','evidence_extraction_result','research_answer_synthesis_input','research_answer_synthesis_output'];
+        const traceEvidence=(evidenceItems||[]).filter((item)=>traceEvidenceKinds.includes(item.evidence_kind||''));
+        const items=[];
+        const grouped=groupEvidenceByStep(steps,traceEvidence);
+        for(const step of steps){items.push({kind:"step",sortKey:step.started_at||step.created_at||"",data:{step,evidence:grouped.byStep.get(step.step_id)||[]}});}
+        for(const call of llmCalls){items.push({kind:"llm",sortKey:call.started_at||call.completed_at||"",data:call});}
+        for(const ev of grouped.unmatched){items.push({kind:"ev",sortKey:ev.created_at||"",data:ev});}
+        if(!items.length){c.innerHTML='<div class="empty-hint">no activity yet</div>';return;}
+        items.sort((a,b)=>String(b.sortKey).localeCompare(String(a.sortKey)));
+        c.innerHTML=items.map((item)=>item.kind==="llm"?renderLlmTraceItem(item.data):item.kind==="ev"?renderEvidenceTraceItem(item.data):renderStepTraceItem(item.data.step,item.data.evidence)).join("");
+      }
+
+      function renderStepTraceItem(step,evidenceItems){
+        const payload=step.payload_json||{};
+        const action=step.action_name||step.node_name||step.phase||step.status||"step";
+        const url=payload.source_url||payload.page_url||payload.target_url||payload.url||"";
+        const stageInfo=deriveTraceStageInfo(action,payload,step.status);
+        const meta=[step.status,step.phase].filter(Boolean).join(" · ");
+        const evidenceHtml=(evidenceItems||[]).map((item)=>renderEvidenceTraceCard(item)).join("");
+        return `<div class="trace-item"><div class="ti-icon ${statusTone(step.status)}">${traceIcon(step)}</div><div class="ti-body"><div class="ti-head"><div class="ti-action">${escapeHtml(action)}</div><div class="ti-stage ${stageInfo.tone}">${escapeHtml(stageInfo.label)}</div></div>${url?`<div class="ti-url">${escapeHtml(url)}</div>`:""}${meta?`<div class="ti-meta">${escapeHtml(meta)}</div>`:""}${evidenceHtml}</div></div>`;
+      }
+
+      function renderLlmTraceItem(call){
+        const op=call.operation_name||"llm_call";
+        const model=[call.provider_name,call.model_name].filter(Boolean).join(" · ");
+        const prompt=extractLlmPrompt(call);
+        const response=extractLlmResponse(call);
+        const meta=[call.success?"ok":"pending",call.latency_ms?`${call.latency_ms} ms`:"",call.total_tokens?`${call.total_tokens} tok`:""].filter(Boolean).join(" · ");
+        const promptBlock=renderTraceTextBlock("prompt",prompt,`llm-prompt-${escapeHtmlAttr(call.call_id||op)}`);
+        const responseBlock=renderTraceTextBlock("response",response,`llm-response-${escapeHtmlAttr(call.call_id||op)}`);
+        return `<div class="trace-item"><div class="ti-icon ${call.success?"ok":"warn"}">AI</div><div class="ti-body"><div class="ti-head"><div class="ti-action">${escapeHtml(op)}</div><div class="ti-stage ${call.success?"ok":"warn"}">llm</div></div>${model?`<div class="ti-url">${escapeHtml(model)}</div>`:""}${meta?`<div class="ti-meta">${escapeHtml(meta)}</div>`:""}${promptBlock||responseBlock?`<div class="ti-llm">${promptBlock}${responseBlock}</div>`:""}</div></div>`;
+      }
+
+      function renderEvidenceTraceItem(item){
+        const tone=deriveEvidenceTraceTone(item);
+        return `<div class="trace-item"><div class="ti-icon ${tone}">${evidenceTraceIcon(item)}</div><div class="ti-body">${renderEvidenceTraceCard(item)}</div></div>`;
+      }
+
+      function evidenceTraceIcon(item){
+        const kind=String(item.evidence_kind||'');
+        if(kind==='inspection_result') return '◻';
+        if(kind==='goal_validation_result') return '✓';
+        if(kind==='evidence_extraction_result') return isOcrEvidence(item)?'◎':'◈';
+        if(kind==='research_answer_synthesis_input'||kind==='research_answer_synthesis_output') return 'Σ';
+        return '•';
+      }
+
+      function deriveEvidenceTraceTone(item){
+        const kind=String(item.evidence_kind||'');
+        const content=item.content_json||{};
+        if(kind==='goal_validation_result') return statusTone(content.status||content.validation_status||'completed');
+        if(kind==='evidence_extraction_result') return 'ok';
+        return statusTone(content.status||'completed');
+      }
+
+      function renderEvidenceTraceCard(item){
+        const kind=String(item.evidence_kind||"");
+        const content=item.content_json||{};
+        const meta=item.metadata_json||{};
+        const source=item.source_url||item.local_path||'';
+        const tone=deriveEvidenceTraceTone(item);
+        const stage=deriveEvidenceTraceStage(item);
+        const title=deriveEvidenceTraceTitle(item);
+        const summary=deriveEvidenceTraceSummary(item);
+        const screenshot=kind==='inspection_result'?buildScreenshotDataUrl(content):'';
+        const action=meta.action?`<div class="ti-meta">action: ${escapeHtml(String(meta.action))}</div>`:'';
+        const backend=meta.extraction_backend?`<div class="ti-meta">backend: ${escapeHtml(String(meta.extraction_backend))}</div>`:'';
+        const nextStep=content.recommended_next_step?`<div class="ti-meta">next: ${escapeHtml(String(content.recommended_next_step))}</div>`:'';
+        return `<div class="trace-card"><div class="ti-head"><div class="ti-action">${escapeHtml(title)}</div><div class="ti-stage ${tone}">${escapeHtml(stage)}</div></div>${source?`<div class="ti-url">${escapeHtml(source)}</div>`:""}${summary?`<div class="trace-summary">${escapeHtml(trimLong(summary,360))}</div>`:''}${nextStep}${backend}${action}${screenshot?`<img class="trace-shot" src="${screenshot}" alt="trace screenshot" />`:''}</div>`;
+      }
+
+      function deriveEvidenceTraceStage(item){
+        const kind=String(item.evidence_kind||'');
+        if(kind==='inspection_result') return 'screenshot';
+        if(kind==='goal_validation_result') return 'validated';
+        if(kind==='evidence_extraction_result') return isOcrEvidence(item)?'ocr':'extraction';
+        if(kind==='research_answer_synthesis_input') return 'synthesis input';
+        if(kind==='research_answer_synthesis_output') return 'synthesis output';
+        return 'evidence';
+      }
+
+      function deriveEvidenceTraceTitle(item){
+        const kind=String(item.evidence_kind||'');
+        if(kind==='inspection_result') return 'perception';
+        if(kind==='goal_validation_result') return 'goal validation';
+        if(kind==='evidence_extraction_result') return isOcrEvidence(item)?'ocr extraction':'evidence extraction';
+        if(kind==='research_answer_synthesis_input') return 'research answer synthesis input';
+        if(kind==='research_answer_synthesis_output') return 'research answer synthesis output';
+        return kind||'evidence';
+      }
+
+      function deriveEvidenceTraceSummary(item){
+        const kind=String(item.evidence_kind||'');
+        const content=item.content_json||{};
+        if(kind==='inspection_result') return (content.local_perception&&content.local_perception.summary)||content.text_excerpt||content.content||'';
+        if(kind==='goal_validation_result') return (content.summary||content.validation_status||'')||'';
+        if(kind==='evidence_extraction_result') return content.text_excerpt||content.summary||content.inline_text||'';
+        if(kind==='research_answer_synthesis_input') return `goal: ${content.user_goal||''}\nrun_summary: ${content.run_summary||''}`;
+        if(kind==='research_answer_synthesis_output') return `status: ${content.status||''}\nfinal_answer: ${content.final_answer||''}`;
+        return '';
+      }
+
+      function isOcrEvidence(item){
+        const meta=item.metadata_json||{};
+        const backend=String(meta.extraction_backend||'').toLowerCase();
+        return backend.includes('ocr')||backend.includes('glm_ocr');
+      }
+
+      function renderTraceTextBlock(label,text,idBase){
+        if(!text) return "";
+        const full=String(text);
+        const short=trimLong(full,420);
+        const expandable=full.length>short.length;
+        const contentId=`${idBase}-content`;
+        return `<div class="ti-llm-label">${escapeHtml(label)}</div><div class="ti-llm-text" id="${contentId}" data-short="${escapeHtmlAttr(short)}" data-full="${escapeHtmlAttr(full)}" data-expanded="false">${escapeHtml(short)}</div>${expandable?`<button class="ti-llm-toggle" type="button" data-trace-toggle="${contentId}">show more</button>`:""}`;
+      }
+
+      function extractLlmPrompt(call){
+        const messages=call.messages_json||{};
+        const arr=Array.isArray(messages.messages)?messages.messages:(Array.isArray(messages)?messages:[]);
+        const parts=[];
+        for(const msg of arr){if(!msg||typeof msg!=="object") continue;const role=msg.role||"msg";const text=contentToText(msg.content);if(text) parts.push(`${role}: ${text}`);}
+        return parts.join("\n\n").trim();
+      }
+
+      function extractLlmResponse(call){
+        const payload=call.response_json||{};
+        const direct=payload.text||payload.response_text||payload.content||payload.completion||"";
+        if(typeof direct==="string"&&direct.trim()) return direct.trim();
+        if(payload.message&&typeof payload.message==="object"){const text=contentToText(payload.message.content);if(text) return text.trim();}
+        const parsed=payload.parsed_response||payload.output||payload.structured_output;
+        if(parsed){try{return JSON.stringify(parsed,null,2);}catch(e){}}
+        return "";
+      }
+
+      function contentToText(content){
+        if(typeof content==="string") return content;
+        if(Array.isArray(content)){const parts=[];for(const item of content){if(typeof item==="string") parts.push(item);else if(item&&typeof item==="object"){if(item.type==="text"&&item.text) parts.push(String(item.text));else if("content"in item&&typeof item.content==="string") parts.push(item.content);}}return parts.join("\n");}
+        if(content&&typeof content==="object"&&typeof content.text==="string") return content.text;
+        return "";
+      }
+
+      function trimLong(text,maxLen){
+        const value=String(text||"").trim();
+        if(!value) return "";
+        return value.length>maxLen?value.slice(0,maxLen-1)+"…":value;
+      }
+
+      function renderMessageHtml(text,role){
+        const value=String(text||"");
+        if(role==="user") return simpleTextToHtml(value);
+        const markdown=markdownToHtml(value);
+        return sanitizeSimpleHtml(markdown);
+      }
+
+      function simpleTextToHtml(text){return escapeHtml(String(text||"")).replaceAll("\n","<br>");}
+
+      function markdownToHtml(text){
+        let html=escapeHtml(String(text||""));
+        html=html.replace(new RegExp("```([\\s\\S]*?)```","g"),(_,code)=>`<pre><code>${code.trim()}</code></pre>`);
+        html=html.replace(new RegExp("`([^`]+)`","g"),"<code>$1</code>");
+        html=html.replace(new RegExp("^###\\s+(.+)$","gm"),"<h3>$1</h3>");
+        html=html.replace(new RegExp("^##\\s+(.+)$","gm"),"<h2>$1</h2>");
+        html=html.replace(new RegExp("^#\\s+(.+)$","gm"),"<h1>$1</h1>");
+        html=html.replace(new RegExp("\\*\\*([^*]+)\\*\\*","g"),"<strong>$1</strong>");
+        html=html.replace(new RegExp("\\*([^*]+)\\*","g"),"<em>$1</em>");
+        html=renderMarkdownTables(html);
+        html=renderMarkdownLists(html);
+        html=html.split("\n\n").map((block)=>{
+          const normalized=block.trim();
+          if(!normalized) return "";
+          if(block.includes("<table")||block.includes("<ul")||block.includes("<ol")||normalized.startsWith("<h1>")||normalized.startsWith("<h2>")||normalized.startsWith("<h3>")||normalized.startsWith("<pre>")) return block;
+          return `<p>${block.replaceAll("\n","<br>")}</p>`;
+        }).join("");
+        return html;
+      }
+
+      function renderMarkdownTables(html){
+        const lines=html.split("\n");const out=[];let i=0;
+        while(i<lines.length){
+          const line=lines[i];const next=lines[i+1]||"";
+          if(line.includes("|")&&isMarkdownTableDivider(next)){
+            const header=parseTableRow(line);const rows=[];i+=2;
+            while(i<lines.length&&lines[i].includes("|")){rows.push(parseTableRow(lines[i]));i++;}
+            out.push(`<table><thead><tr>${header.map((cell)=>`<th>${cell}</th>`).join("")}</tr></thead><tbody>${rows.map((row)=>`<tr>${row.map((cell)=>`<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+            continue;
+          }
+          out.push(line);i++;
+        }
+        return out.join("\n");
+      }
+
+      function parseTableRow(line){
+        let row=String(line||"").trim();
+        if(row.startsWith("|")) row=row.slice(1);
+        if(row.endsWith("|")) row=row.slice(0,-1);
+        return row.split("|").map((cell)=>cell.trim());
+      }
+
+      function isMarkdownTableDivider(line){
+        const value=String(line||"").trim();
+        if(!value) return false;
+        const normalized=value.replaceAll("|","").replaceAll(":","").replaceAll(" ","").replaceAll("\t","");
+        return normalized.length>=3&&normalized.split("").every((char)=>char==="-");
+      }
+
+      function getBulletListItem(line){
+        const value=String(line||"");const trimmed=value.trimStart();
+        if(trimmed.startsWith("- ")) return trimmed.slice(2).trim();
+        if(trimmed.startsWith("* ")) return trimmed.slice(2).trim();
+        return null;
+      }
+
+      function getOrderedListItem(line){
+        const trimmed=String(line||"").trimStart();let idx=0;
+        while(idx<trimmed.length&&trimmed[idx]>="0"&&trimmed[idx]<="9"){idx++;}
+        if(idx===0) return null;if(trimmed[idx]!==".") return null;if(trimmed[idx+1]!==" ") return null;
+        return trimmed.slice(idx+2).trim();
+      }
+
+      function renderMarkdownLists(html){
+        const lines=html.split("\n");const out=[];let i=0;
+        while(i<lines.length){
+          const bulletItem=getBulletListItem(lines[i]);
+          if(bulletItem!==null){const items=[];while(i<lines.length){const item=getBulletListItem(lines[i]);if(item===null) break;items.push(item);i++;}out.push(`<ul>${items.map((item)=>`<li>${item}</li>`).join("")}</ul>`);continue;}
+          const orderedItem=getOrderedListItem(lines[i]);
+          if(orderedItem!==null){const items=[];while(i<lines.length){const item=getOrderedListItem(lines[i]);if(item===null) break;items.push(item);i++;}out.push(`<ol>${items.map((item)=>`<li>${item}</li>`).join("")}</ol>`);continue;}
+          out.push(lines[i]);i++;
+        }
+        return out.join("\n");
+      }
+
+      function sanitizeSimpleHtml(raw){
+        const template=document.createElement("template");
+        template.innerHTML=String(raw||"");
+        const allowed=new Set(["P","BR","STRONG","EM","CODE","PRE","H1","H2","H3","UL","OL","LI","TABLE","THEAD","TBODY","TR","TH","TD","A"]);
+        const walk=(node)=>{
+          let child=node.firstElementChild;
+          while(child){
+            const next=child.nextElementSibling;
+            if(!allowed.has(child.tagName)){while(child.firstChild){node.insertBefore(child.firstChild,child);}node.removeChild(child);child=node.firstElementChild;continue;}
+            if(child.tagName==="A"){const href=child.getAttribute("href")||"";const isAllowedLink=href.startsWith("http://")||href.startsWith("https://")||href.startsWith("/api/");if(!isAllowedLink){child.removeAttribute("href");}else{child.setAttribute("target","_blank");child.setAttribute("rel","noreferrer noopener");}}
+            for(const attr of Array.from(child.attributes)){if(child.tagName==="A"&&["href","target","rel"].includes(attr.name)) continue;child.removeAttribute(attr.name);}
+            walk(child);child=next;
+          }
+        };
+        walk(template.content);
+        return template.innerHTML;
+      }
+
+      function buildScreenshotDataUrl(content){
+        const base64=String((content&&content.screenshot_base64)||"").trim();
+        if(!base64) return "";
+        const mime=String((content&&content.screenshot_mime_type)||"image/png").trim()||"image/png";
+        return `data:${mime};base64,${base64}`;
+      }
+
+      function groupEvidenceByStep(steps,evidenceItems){
+        const byStep=new Map();const unmatched=[];const used=new Set();
+        for(const step of steps){
+          const action=String(step.action_name||step.node_name||'').trim().toLowerCase();
+          const matches=[];
+          for(let i=0;i<evidenceItems.length;i++){
+            if(used.has(i)) continue;
+            const item=evidenceItems[i];const meta=item.metadata_json||{};
+            const sourceAction=String(meta.source_action||meta.action||'').trim().toLowerCase();
+            if(action&&sourceAction&&sourceAction===action){matches.push(item);used.add(i);}
+          }
+          if(matches.length) byStep.set(step.step_id,matches);
+        }
+        for(let i=0;i<evidenceItems.length;i++){if(!used.has(i)) unmatched.push(evidenceItems[i]);}
+        return{byStep,unmatched};
+      }
+
+      function deriveTraceStageInfo(action,payload,status){
+        const text=`${action} ${JSON.stringify(payload||{})}`.toLowerCase();
+        const tone=statusTone(status);
+        if(text.includes('screenshot')) return{label:'screenshot',tone};
+        if(text.includes('goal_validation')||text.includes('validation')) return{label:tone==='ok'?'validated':'validation',tone};
+        if(text.includes('download')) return{label:tone==='ok'?'downloaded':'downloading',tone};
+        if(text.includes('ocr')) return{label:tone==='ok'?'ocr ready':'ocr',tone};
+        if(text.includes('extract')) return{label:tone==='ok'?'extracted':'extraction',tone};
+        if(text.includes('inspect')) return{label:'inspection',tone};
+        if(text.includes('artifact')) return{label:'artifact',tone};
+        if(text.includes('open')) return{label:'open',tone};
+        if(text.includes('search')) return{label:'search',tone};
+        if(text.includes('follow')||text.includes('navigate')) return{label:'navigation',tone};
+        return{label:'step',tone};
+      }
+
+      function renderEvidence(items){
+        const c=$("ev-list");
+        if(!items.length){c.innerHTML='<div class="empty-hint">no evidence yet</div>';return;}
+        c.innerHTML=items.slice().reverse().map((item)=>renderEvidenceItem(item)).join("");
+      }
+
+      function renderEvidenceItem(item){
+        const kind=String(item.evidence_kind||"evidence");
+        const title=deriveEvidenceTitle(item);
+        const body=deriveEvidenceBody(item);
+        const extra=deriveEvidenceExtra(item);
+        const details=deriveEvidenceDetails(item);
+        return `<div class="ev-item"><div class="ev-kind">${escapeHtml(kind)}</div><div class="ev-text">${escapeHtml(title)}</div>${body?`<div class="ev-text">${escapeHtml(body).replaceAll("\n","<br>")}</div>`:""}${details}${extra?`<div class="ev-src">${escapeHtml(extra).replaceAll("\n","<br>")}</div>`:""}</div>`;
+      }
+
+      function deriveEvidenceTitle(item){
+        const kind=String(item.evidence_kind||"");const content=item.content_json||{};
+        if(kind==="download_result") return `Downloaded artifact: ${content.final_url||item.source_url||item.local_path||"no source"}`;
+        if(kind==="inspection_result") return `Inspected page: ${item.source_url||content.page_url||"no URL"}`;
+        if(kind==="artifact_result") return `Artifact abierto: ${content.artifact_kind||item.local_path||item.source_url||"artifact"}`;
+        if(kind==="goal_validation_result") return `Validation: ${content.status||content.validation_status||"no status"}`;
+        if(kind==="evidence_extraction_result") return `Extraction: ${content.text_excerpt||content.summary||"extracted evidence"}`;
+        if(kind==="research_answer_synthesis_input") return "Payload sent to final synthesis";
+        if(kind==="research_answer_synthesis_output") return "Final synthesis output";
+        return item.title||kind||"evidence";
+      }
+
+      function deriveEvidenceBody(item){
+        const kind=String(item.evidence_kind||"");const content=item.content_json||{};
+        if(kind==="download_result"){const parts=[];if(content.sha256) parts.push(`sha256: ${content.sha256}`);if(content.size_bytes!=null) parts.push(`size_bytes: ${content.size_bytes}`);return parts.join(" · ");}
+        if(kind==="inspection_result"){const lp=content.local_perception||{};return trimLong(lp.summary||content.summary||"Inspection captured. Check trace for screenshot and visual detail.",420);}
+        if(kind==="artifact_result") return trimLong(content.text_excerpt||content.content||"",700);
+        if(kind==="goal_validation_result") return trimLong(content.summary||content.validation_scope_assessment||"",700);
+        if(kind==="evidence_extraction_result") return trimLong(content.text_excerpt||content.summary||content.inline_text||"",900);
+        if(kind==="research_answer_synthesis_input") return trimLong(`goal: ${content.user_goal||''}\nrun_summary: ${content.run_summary||''}`,900);
+        if(kind==="research_answer_synthesis_output") return trimLong(`status: ${content.status||''}\nfinal_answer: ${content.final_answer||''}`,900);
+        return trimLong(JSON.stringify(content,null,2),900);
+      }
+
+      function deriveEvidenceExtra(item){
+        const kind=String(item.evidence_kind||"");const content=item.content_json||{};const meta=item.metadata_json||{};
+        if(kind==="goal_validation_result"){const parts=[];const ids=Array.isArray(content.matched_condition_ids)?content.matched_condition_ids:[];if(ids.length) parts.push(`matched_condition_ids: ${ids.join(", ")}`);if(content.validated_document_family) parts.push(`document_family: ${content.validated_document_family}`);if(content.validated_year!=null) parts.push(`year: ${content.validated_year}`);if(content.recommended_next_step) parts.push(`next: ${content.recommended_next_step}`);return parts.join("\n");}
+        if(kind==="inspection_result"){const parts=[];const lp=content.local_perception||{};if(lp.status) parts.push(`local_perception: ${lp.status}`);if(lp.recommended_next_step) parts.push(`next: ${lp.recommended_next_step}`);const candidateCount=content.candidate_count??(content.metadata&&content.metadata.candidate_count);if(candidateCount!=null) parts.push(`candidate_count: ${candidateCount}`);const pageTitle=content.title||content.page_title;if(pageTitle) parts.push(`title: ${pageTitle}`);if(content.screenshot_base64) parts.push("screenshot: disponible en trace");return parts.join("\n");}
+        if(kind==="evidence_extraction_result"){const parts=[];if(meta.extraction_backend) parts.push(`backend: ${meta.extraction_backend}`);if(content.carrier) parts.push(`carrier: ${content.carrier}`);if(content.page_number!=null) parts.push(`page: ${content.page_number}`);const itemMeta=content.metadata&&typeof content.metadata==='object'?content.metadata:{};if(itemMeta.content_format) parts.push(`format: ${itemMeta.content_format}`);if(itemMeta.extracted_by) parts.push(`extracted_by: ${itemMeta.extracted_by}`);return parts.join("\n");}
+        if(kind==="research_answer_synthesis_input"){const parts=[];const findings=Array.isArray(content.findings)?content.findings:[];if(findings.length) parts.push(`findings: ${findings.length}`);return parts.join("\n");}
+        return "";
+      }
+
+      function deriveEvidenceDetails(item){
+        const rows=buildEvidenceDetailRows(item);
+        if(!rows.length) return "";
+        return `<div class="ev-grid">${rows.map(([k,v])=>`<div class="ev-row"><span>${escapeHtml(k)}</span><span>${escapeHtml(v)}</span></div>`).join("")}</div>`;
+      }
+
+      function buildEvidenceDetailRows(item){
+        const kind=String(item.evidence_kind||"");const content=item.content_json||{};const meta=item.metadata_json||{};
+        const itemMeta=content.metadata&&typeof content.metadata==="object"?content.metadata:{};
+        const rows=[];
+        const sourceUrl=item.source_url||content.source_url||content.page_url||content.download_url||"";
+        const localPath=item.local_path||content.local_path||content.original_path||"";
+        const backend=meta.extraction_backend||(meta.result_metadata&&meta.result_metadata.source)||meta.source_action||itemMeta.extracted_by||"";
+        const ocrMode=itemMeta.ocr_mode||content.ocr_mode||meta.ocr_mode||"";
+        const carrier=content.carrier||itemMeta.carrier||"";
+        if(sourceUrl) rows.push(["source_url",String(sourceUrl)]);
+        if(localPath) rows.push(["local_path",String(localPath)]);
+        if(backend) rows.push(["extracted_by",String(backend)]);
+        if(carrier) rows.push(["carrier",String(carrier)]);
+        if(ocrMode) rows.push(["ocr_mode",String(ocrMode)]);
+        if(kind==="download_result"){if(content.final_url) rows.push(["final_url",String(content.final_url)]);if(content.size_bytes!=null) rows.push(["size_bytes",String(content.size_bytes)]);}
+        if(kind==="evidence_extraction_result"){if(content.page_number!=null) rows.push(["page",String(content.page_number)]);if(itemMeta.content_format) rows.push(["format",String(itemMeta.content_format)]);}
+        if(kind==="artifact_result"){if(content.artifact_kind) rows.push(["artifact_kind",String(content.artifact_kind)]);}
+        return rows;
+      }
+
+      function renderLedger(){
+        const el=$("ledger-view");
+        const run=state.ledger.run;const session=state.ledger.session;const evidence=state.ledger.evidence||[];
+        if(!run&&!session&&!evidence.length){el.innerHTML='<div class="empty-hint">no data yet</div>';return;}
+        const llmCalls=(run&&run.llm_calls)||[];const steps=(run&&run.steps)||[];
+        const kinds=countBy(evidence.map((item)=>item.evidence_kind||"unknown"));
+        const ops=countBy(llmCalls.map((item)=>item.operation_name||"llm_call"));
+        el.innerHTML=`<div class="ledger-grid"><div class="ledger-card"><div class="ledger-title">run</div><div class="ledger-value">id: ${escapeHtml((run&&run.run_id)||state.currentRunId||"—")}<br>status: ${escapeHtml((run&&run.status)||"—")}<br>steps: ${steps.length}<br>llm_calls: ${llmCalls.length}<br>evidence: ${evidence.length}</div></div><div class="ledger-card"><div class="ledger-title">session</div><div class="ledger-value">id: ${escapeHtml((session&&session.session_id)||state.currentSessionId||"—")}<br>kind: ${escapeHtml((session&&session.session_kind)||"—")}<br>messages: ${((session&&session.messages)||[]).length}<br>runs: ${((session&&session.runs)||[]).length}</div></div></div><div class="plan-divider"></div><div class="ledger-card"><div class="ledger-title">evidence kinds</div>${renderCountRows(kinds)}</div><div class="plan-divider"></div><div class="ledger-card"><div class="ledger-title">llm operations</div>${renderCountRows(ops)}</div><div class="plan-divider"></div><div class="ledger-card"><div class="ledger-title">evidence trace</div>${renderLedgerEvidenceRows(evidence)}</div><div class="plan-divider"></div><div class="ledger-card"><div class="ledger-title">session context</div><div class="ledger-json">${escapeHtml(formatJsonBlock((session&&session.context_json)||{}))}</div></div><div class="plan-divider"></div><div class="ledger-card"><div class="ledger-title">run metadata</div><div class="ledger-json">${escapeHtml(formatJsonBlock((run&&run.metadata_json)||{}))}</div></div>`;
+      }
+
+      function renderLedgerEvidenceRows(items){
+        if(!items.length) return '<div class="empty-hint">no evidence</div>';
+        return `<div class="ledger-evidence-table">${items.slice().reverse().map((item)=>{const rows=buildEvidenceDetailRows(item);const kind=String(item.evidence_kind||"evidence");const title=deriveEvidenceTitle(item);return `<div class="ledger-ev"><div class="ledger-ev-head"><span>${escapeHtml(kind)}</span><span>${escapeHtml(item.created_at||"")}</span></div><div class="ledger-ev-body">${escapeHtml(title)}${rows.length?`\n${rows.map(([k,v])=>`${k}: ${v}`).join("\n")}`:""}</div></div>`;}).join("")}</div>`;
+      }
+
+      function countBy(items){
+        const counts={};
+        for(const item of items){const key=String(item||"unknown");counts[key]=(counts[key]||0)+1;}
+        return counts;
+      }
+
+      function renderCountRows(counts){
+        const entries=Object.entries(counts);
+        if(!entries.length) return '<div class="empty-hint">no data</div>';
+        return `<div class="ledger-list">${entries.sort((a,b)=>b[1]-a[1]).map(([key,value])=>`<div class="ledger-row"><span>${escapeHtml(key)}</span><span>${value}</span></div>`).join("")}</div>`;
+      }
+
+      function formatJsonBlock(value){try{return JSON.stringify(value,null,2);}catch(e){return String(value||"");}}
+
+      function traceIcon(step){
+        const status=String(step.status||"").toLowerCase();
+        if(status.includes("fail")||status.includes("error")) return "×";
+        if(status.includes("complete")||status.includes("done")) return "✓";
+        if(status.includes("running")) return "…";
+        return "→";
+      }
+
+      function statusTone(status){
+        const s=String(status||"").toLowerCase();
+        if(s.includes("complete")||s.includes("done")||s.includes("good")) return "ok";
+        if(s.includes("fail")||s.includes("error")) return "err";
+        return "warn";
+      }
+
+      function escapeHtml(v){return String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");}
+      function escapeHtmlAttr(v){return escapeHtml(v).replaceAll('"',"&quot;");}
+
+      boot();
+    </script>
+  </body>
+</html>

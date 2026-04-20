@@ -1,0 +1,79 @@
+{
+  "request": {
+    "entry_url": "https://html.duckduckgo.com/html/",
+    "goal": ".",
+    "max_hops": 20,
+    "max_pages": 200,
+    "decision_mode": "llm",
+    "allow_artifact_download": true,
+    "allow_artifact_open": true
+  },
+  "execution": {
+    "jurisdiction_code": "mx-federal",
+    "document_key": "exploracion",
+    "timeout_seconds": 200,
+    "execution_metadata": {
+      "research_mode": "collect_artifacts",
+      "artifact_persistence_mode": "on_validation",
+      "navigation_perception_mode": "llm",
+      "goal_validation_mode": "llm",
+      "navigation_perception_include_screenshot": true,
+      "navigation_perception_max_candidates_to_inspect": 600,
+      "navigation_perception_max_candidates_to_prompt": 40,
+      "navigation_perception_text_excerpt_max_chars": 4000,
+      "navigation_perception_debug_payload_io": false,
+      "graph_mapper_prompt_version": "v2"
+    },
+    "ledger": {
+              "database_url": "data/ledger/graph_mapper_agent.sqlite3"
+            }
+  },
+  "llm_runtime": {
+    "backend": "pydantic_ai_openrouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "default_model": "qwen/qwen3.5-122b-a10b",
+    "api_key": "PUT_YOUR_OPENROUTER_API_KEY_HERE",
+    "supports_vision": true,
+    "structured_output_mode": "prompted",
+    "enable_reasoning": true,
+    "reasoning_effort": "medium",
+    "reasoning_max_tokens": null,
+    "reasoning_exclude": true
+  },
+  "navigation_perception_llm_runtime": {
+    "backend": "pydantic_ai_openrouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "default_model": "qwen/qwen3.5-122b-a10b",
+    "api_key": "PUT_YOUR_OPENROUTER_API_KEY_HERE",
+    "supports_vision": true,
+    "structured_output_mode": "prompted",
+    "enable_reasoning": true
+  },
+  "goal_validation_llm_runtime": {
+    "backend": "pydantic_ai_openrouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "default_model": "qwen/qwen3.5-122b-a10b",
+    "api_key": "PUT_YOUR_OPENROUTER_API_KEY_HERE",
+    "supports_vision": true,
+    "structured_output_mode": "prompted",
+    "enable_reasoning": true
+  },
+  "evidence_extraction_visual_llm_runtime": {
+    "backend": "pydantic_ai_openrouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "default_model": "qwen/qwen3.5-122b-a10b",
+    "api_key": "PUT_YOUR_OPENROUTER_API_KEY_HERE",
+    "supports_vision": true,
+    "structured_output_mode": "prompted",
+    "enable_reasoning": true
+  },
+  "evidence_extraction_ocr_llm_runtime": {
+    "backend": "pydantic_ai_openrouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "default_model": "qwen/qwen3.5-122b-a10b",
+    "api_key": "PUT_YOUR_OPENROUTER_API_KEY_HERE",
+    "supports_vision": true,
+    "structured_output_mode": "prompted",
+    "enable_reasoning": true
+  }
+}

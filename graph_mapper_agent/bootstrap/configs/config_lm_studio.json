@@ -1,0 +1,68 @@
+{
+  "request": {
+    "entry_url": "https://html.duckduckgo.com/html/",
+    "goal": ".",
+    "max_hops": 20,
+    "max_pages": 200,
+    "decision_mode": "llm",
+    "allow_artifact_download": true,
+    "allow_artifact_open": true
+  },
+  "execution": {
+    "jurisdiction_code": "mx-federal",
+    "document_key": "exploracion",
+    "timeout_seconds": 200,
+    "execution_metadata": {
+      "research_mode": "collect_artifacts",
+      "artifact_persistence_mode": "on_validation",
+      "navigation_perception_mode": "llm",
+      "goal_validation_mode": "llm",
+      "navigation_perception_include_screenshot": true,
+      "navigation_perception_max_candidates_to_inspect": 600,
+      "navigation_perception_max_candidates_to_prompt": 40,
+      "navigation_perception_text_excerpt_max_chars": 4000,
+      "navigation_perception_debug_payload_io": false,
+      "graph_mapper_prompt_version": "v2"
+    },
+    "ledger": {
+            "database_url": "data/ledger/graph_mapper_agent.sqlite3"
+          }
+  },
+  "llm_runtime": {
+    "backend": "pydantic_ai_adapter",
+    "base_url": "http://192.168.1.222:1234/v1",
+    "default_model": "qwen3.5-4b",
+    "supports_vision": true,
+    "structured_output_mode": "auto"
+  },
+  "navigation_perception_llm_runtime": {
+    "backend": "pydantic_ai_adapter",
+    "base_url": "http://192.168.1.222:1234/v1",
+    "default_model": "qwen3.5-4b",
+    "supports_vision": true,
+    "structured_output_mode": "auto",
+    "enable_reasoning": true
+  },
+  "goal_validation_llm_runtime": {
+    "backend": "pydantic_ai_adapter",
+    "base_url": "http://192.168.1.222:1234/v1",
+    "default_model": "qwen3.5-4b",
+    "supports_vision": true,
+    "structured_output_mode": "auto",
+    "enable_reasoning": true
+  },
+  "evidence_extraction_visual_llm_runtime": {
+    "backend": "pydantic_ai_adapter",
+    "base_url": "http://192.168.1.222:1234/v1",
+    "default_model": "qwen3.5-4b",
+    "supports_vision": true,
+    "structured_output_mode": "auto"
+  },
+  "evidence_extraction_ocr_llm_runtime": {
+    "backend": "pydantic_ai_adapter",
+    "base_url": "http://192.168.1.222:1234/v1",
+    "default_model": "qwen3.5-4b",
+    "supports_vision": true,
+    "structured_output_mode": "auto"
+  }
+}
