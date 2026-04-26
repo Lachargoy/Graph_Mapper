@@ -219,17 +219,9 @@ You can use this section as the public support point for:
 
 Suggested support channels:
 
-- GitHub Sponsors
-- Buy Me a Coffee
-- Ko-fi
-- direct contact or consulting email
+- [Buy Me a Coffee](https://buymeacoffee.com/aither)
+- Direct contact: `lajimenezcha003@gmail.com`
 
 Crypto donations:
 
-- Bitcoin (BTC): `YOUR_BTC_ADDRESS`
-- Ethereum (ETH): `YOUR_ETH_ADDRESS`
-- Solana (SOL): `YOUR_SOL_ADDRESS`
-- BNB (BNB Smart Chain / BSC): `YOUR_BNB_ADDRESS`
-- Cardano (ADA): `YOUR_ADA_ADDRESS`
-
-Replace the placeholders in this section with your real support links and wallet addresses before publishing.
+- Bitcoin (BTC): `bc1q4m0e3qatw5q6zfx3trp8ntdhg9lm0m7xdxlfv7`
