@@ -2,7 +2,14 @@
 
 This guide is meant to validate that the project runs locally and to point you to its most useful entry points.
 
-## 1. Create a Dedicated Environment
+## 1. Clone the Repository
+
+```bash
+git clone https://github.com/Lachargoy/Graph_Mapper.git
+cd Graph_Mapper
+```
+
+## 2. Create a Dedicated Environment
 
 The simplest setup for this repository is a dedicated local environment such as `mapper-venv`:
 
@@ -21,7 +28,30 @@ If you want to use the OpenRouter profile, edit:
 
 and replace each `PUT_YOUR_OPENROUTER_API_KEY_HERE` placeholder with your real API key. The LM Studio and Ollama profiles do not need that key.
 
-## 2. Sanity Check
+## 3. Choose and Edit a Config Profile
+
+The project currently ships with three canonical profiles under `graph_mapper_agent/bootstrap/configs/`:
+
+- `config_qwen.json`
+- `config_lm_studio.json`
+- `config_ollama.json`
+
+If you want to use the OpenRouter profile, edit:
+
+- `graph_mapper_agent/bootstrap/configs/config_qwen.json`
+
+and replace each `PUT_YOUR_OPENROUTER_API_KEY_HERE` placeholder with your real API key.
+
+Default profile notes:
+
+- `entry_url` starts at `https://html.duckduckgo.com/html/`
+- `goal` is `"."` by default as a placeholder
+- for real runs, you will usually want to replace `goal`
+- change `entry_url` only if you want a different starting point than the DuckDuckGo HTML flow
+
+The LM Studio and Ollama profiles do not need an OpenRouter key.
+
+## 4. Sanity Check
 
 Compile the package to catch obvious syntax or import issues:
 
@@ -30,7 +60,7 @@ python -m compileall graph_mapper_agent
 python -c "import graph_mapper_agent.bootstrap.runner_menu as rm; print(rm.__file__)"
 ```
 
-## 3. Interactive Configuration Runner
+## 5. Interactive Configuration Runner
 
 The local configuration menu lives in `graph_mapper_agent/bootstrap/runner_menu.py`.
 
@@ -46,7 +76,7 @@ This lets you:
 - review or revise the proposed goal when that flow is enabled
 - run a full agent execution locally
 
-## 4. Local HTTP Interface
+## 6. Local HTTP Interface
 
 To launch the local UI:
 
@@ -72,7 +102,15 @@ The HTTP interface also loads its config profiles from:
 
 - `graph_mapper_agent/bootstrap/configs/`
 
-## 5. MCP and Chat
+Typical first run:
+
+```bash
+python -m graph_mapper_agent.interfaces.http.server
+```
+
+Then open `http://127.0.0.1:8791`, choose a profile, and launch a run from the UI.
+
+## 7. MCP and Chat
 
 The higher-level interfaces live in:
 
@@ -86,7 +124,7 @@ The most direct entry point for research chat is `process_chat_turn(...)`. Inter
 - executes `chat_with_research(...)`
 - returns an answer, summary, and findings
 
-## 6. Research Modes
+## 8. Research Modes
 
 The project currently supports three useful modes:
 
@@ -94,7 +132,7 @@ The project currently supports three useful modes:
 - `collect_artifacts`: downloads and persists validated artifacts
 - `mixed`: leaves more room for future persistence policy decisions
 
-## 7. Important Runtime Dependencies
+## 9. Important Runtime Dependencies
 
 The current `requirements.txt` covers the Python package layer. Two runtime dependencies matter especially in practice:
 
@@ -103,7 +141,7 @@ The current `requirements.txt` covers the Python package layer. Two runtime depe
 
 If they are missing, the runtime raises explicit errors when those capabilities are invoked.
 
-## 8. What to Validate Before Publishing
+## 10. What to Validate Before Publishing
 
 - at least one config profile in `graph_mapper_agent/bootstrap/configs/` runs end-to-end
 - the ledger is created under `graph_mapper_agent/data/ledger/`

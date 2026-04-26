@@ -125,9 +125,16 @@ The repository currently exposes three main surfaces:
 - local HTTP interface
 - MCP/chat interface on top of the full runtime
 
-## Quickstart
+## Install and Run
 
-Recommended environment:
+Clone the repository:
+
+```bash
+git clone https://github.com/Lachargoy/Graph_Mapper.git
+cd Graph_Mapper
+```
+
+Create and activate a dedicated environment:
 
 ```bash
 python -m venv mapper-venv
@@ -136,12 +143,24 @@ pip install -r requirements.txt
 playwright install
 ```
 
+Choose a config profile:
+
+- `graph_mapper_agent/bootstrap/configs/config_qwen.json` for OpenRouter
+- `graph_mapper_agent/bootstrap/configs/config_lm_studio.json` for LM Studio
+- `graph_mapper_agent/bootstrap/configs/config_ollama.json` for Ollama
+
 Provider setup:
 
 - For the OpenRouter profile, edit `graph_mapper_agent/bootstrap/configs/config_qwen.json`
 - Replace every `PUT_YOUR_OPENROUTER_API_KEY_HERE` value with your real OpenRouter API key
 - `config_lm_studio.json` and `config_ollama.json` do not require an OpenRouter key
-- Before your first real run, also adjust the profile values you care about most, especially `entry_url` and `goal`
+
+First-time config notes:
+
+- The default `entry_url` points to `https://html.duckduckgo.com/html/`
+- The default `goal` is `"."` as a placeholder
+- For real runs, you will usually want to replace the default `goal`
+- Change `entry_url` only if you want a different starting workflow than the DuckDuckGo HTML entry point
 
 Basic validation:
 
@@ -165,6 +184,14 @@ python -m graph_mapper_agent.interfaces.http.server
 Default HTTP address:
 
 `127.0.0.1:8791`
+
+Typical first run:
+
+```bash
+python -m graph_mapper_agent.interfaces.http.server
+```
+
+Then open `http://127.0.0.1:8791`, select a config profile, and launch a run from the UI.
 
 ## Documentation
 
