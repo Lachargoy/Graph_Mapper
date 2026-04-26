@@ -6,6 +6,8 @@ It explores websites, follows promising routes, validates whether local content 
 
 What makes it different is that it does not treat web research as a flat sequence of prompts over pages. It treats it as a structured exploration problem with graph memory, branch control, local node interpretation, and explicit validation and evidence steps.
 
+![Graph Mapper architecture](docs/assets/Graph_mapper.png)
+
 ## What It Is
 
 This project is not just a browser wrapper around an LLM.
