@@ -214,4 +214,4 @@ Relevant pieces:
 
 ## Recommended Next Read
 
-If you want to go deeper, continue with [reference.md](/home/luis/mapper/docs/reference.md).
+If you want to go deeper, continue with [reference.md](reference.md).

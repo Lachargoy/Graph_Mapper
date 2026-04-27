@@ -22,12 +22,6 @@ playwright install
 
 `venv` is the recommended default here. A separate Conda environment is possible, but it does not add much value for the current dependency set unless you already manage your machine that way.
 
-If you want to use the OpenRouter profile, edit:
-
-- `graph_mapper_agent/bootstrap/configs/config_qwen.json`
-
-and replace each `PUT_YOUR_OPENROUTER_API_KEY_HERE` placeholder with your real API key. The LM Studio and Ollama profiles do not need that key.
-
 ## 3. Choose and Edit a Config Profile
 
 The project currently ships with three canonical profiles under `graph_mapper_agent/bootstrap/configs/`:

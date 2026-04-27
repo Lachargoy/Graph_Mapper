@@ -81,6 +81,6 @@ The MCP surface does not expose low-level browser tools directly. It exposes hig
 
 ## Recommended Reading Order
 
-1. [quickstart.md](/home/luis/mapper/docs/quickstart.md)
-2. [architecture.md](/home/luis/mapper/docs/architecture.md)
-3. [reference.md](/home/luis/mapper/docs/reference.md)
+1. [quickstart.md](quickstart.md)
+2. [architecture.md](architecture.md)
+3. [reference.md](reference.md)

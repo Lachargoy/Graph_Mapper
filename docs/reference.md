@@ -4,19 +4,19 @@ This index organizes the existing internal manuals. They are useful and technica
 
 ## Main Manuals
 
-- [node_identity_and_dom_mutation.md](/home/luis/mapper/docs/node_identity_and_dom_mutation.md): node identity, URL anchoring, DOM observation, and search-driven mutation
-- [future_graph_dynamics.md](/home/luis/mapper/docs/future_graph_dynamics.md): future direction for dynamic graph modeling, structural projection, and subroutine contracts
-- [goal_validation.md](/home/luis/mapper/docs/goal_validation.md): validation requests, passes, statuses, and progressive goal-oriented validation
-- [navigation_perception.md](/home/luis/mapper/docs/navigation_perception.md): role, inputs, and outputs of navigation perception as a local-reading subroutine
-- [decision_layer.md](/home/luis/mapper/docs/decision_layer.md): decision layer, tactical action selection, and the role of `NodeView`
-- [end_to_end.md](/home/luis/mapper/docs/end_to_end.md): full decider -> executor -> updater flow
-- [execution_layer.md](/home/luis/mapper/docs/execution_layer.md): execution layer and `ActionExecutionResult`
-- [graph_updater.md](/home/luis/mapper/docs/graph_updater.md): graph and runtime mutation
-- [llm_runtime.md](/home/luis/mapper/docs/llm_runtime.md): complete LLM runtime pipeline
-- [ledger.md](/home/luis/mapper/docs/ledger.md): ledger persistence model and operations
-- [web_tooling.md](/home/luis/mapper/docs/web_tooling.md): web tooling, Playwright, downloads, and artifacts
-- [node_estate.md](/home/luis/mapper/docs/node_estate.md): lane transition topology
-- [decider_vs_perception.md](/home/luis/mapper/docs/decider_vs_perception.md): relationship between decider, validation, and perception
+- [node_identity_and_dom_mutation.md](node_identity_and_dom_mutation.md): node identity, URL anchoring, DOM observation, and search-driven mutation
+- [future_graph_dynamics.md](future_graph_dynamics.md): future direction for dynamic graph modeling, structural projection, and subroutine contracts
+- [goal_validation.md](goal_validation.md): validation requests, passes, statuses, and progressive goal-oriented validation
+- [navigation_perception.md](navigation_perception.md): role, inputs, and outputs of navigation perception as a local-reading subroutine
+- [decision_layer.md](decision_layer.md): decision layer, tactical action selection, and the role of `NodeView`
+- [end_to_end.md](end_to_end.md): full decider -> executor -> updater flow
+- [execution_layer.md](execution_layer.md): execution layer and `ActionExecutionResult`
+- [graph_updater.md](graph_updater.md): graph and runtime mutation
+- [llm_runtime.md](llm_runtime.md): complete LLM runtime pipeline
+- [ledger.md](ledger.md): ledger persistence model and operations
+- [web_tooling.md](web_tooling.md): web tooling, Playwright, downloads, and artifacts
+- [node_estate.md](node_estate.md): lane transition topology
+- [decider_vs_perception.md](decider_vs_perception.md): relationship between decider, validation, and perception
 
 ## Gaps or Files That Still Need Cleanup
 
