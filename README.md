@@ -127,6 +127,20 @@ The repository currently exposes three main surfaces:
 - local HTTP interface
 - MCP/chat interface on top of the full runtime
 
+## Agent-Friendly Repository
+
+This repository is also structured to be relatively agent-friendly for code-reading and automation workflows.
+
+In practice, that means:
+
+- the architecture is documented in `docs/` instead of being left implicit
+- runtime concerns are separated into recognizable layers such as planning, decision, execution, validation, evidence extraction, and ledger
+- config profiles are explicit and live under `graph_mapper_agent/bootstrap/configs/`
+- the codebase uses stable domain names like `goal_validation`, `NodeView`, `GraphUpdater`, and `evidence_extraction`
+- the runtime exposes multiple entry surfaces that are easier for tools and agents to inspect: Python modules, HTTP, and MCP-oriented services
+
+This does not mean the repository is optimized for autonomous coding agents above all else. It means the project tries to make its structure legible enough that a human or an agent can study the system, understand the runtime boundaries, and identify where a change belongs.
+
 ## Install and Run
 
 Clone the repository:
@@ -210,7 +224,7 @@ Start here:
 
 The project already has a serious runtime core:
 
-- the new agent lives under `graph_mapper_agent/`
+- the main runtime lives under `graph_mapper_agent/`
 - `goal_validation` is now the canonical validation concept
 - evidence extraction is wired as an explicit post-validation step
 - the runtime, interfaces, and ledger are already integrated
@@ -239,14 +253,14 @@ It has a working runtime, graph-based exploration, validation and evidence flows
 
 If this project is useful to you, or if you want to support continued work on this direction, donations and sponsorship help fund the next stage of development.
 
-You can use this section as the public support point for:
+Support is especially helpful for:
 
-- donations
-- sponsorship
-- research collaborations
-- implementation support
+- continued engineering work on the runtime
+- better OCR and document-processing infrastructure
+- stronger subroutine and workflow architecture
+- deeper experimentation on dynamic graph state
 
-Suggested support channels:
+Current support channels:
 
 - [Buy Me a Coffee](https://buymeacoffee.com/aither)
 - Direct contact: `lajimenezcha003@gmail.com`

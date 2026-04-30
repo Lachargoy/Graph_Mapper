@@ -4,6 +4,7 @@ This index organizes the existing internal manuals. They are useful and technica
 
 ## Main Manuals
 
+- [repo_map.md](repo_map.md): repository orientation, reading order, and folder map
 - [node_identity_and_dom_mutation.md](node_identity_and_dom_mutation.md): node identity, URL anchoring, DOM observation, and search-driven mutation
 - [future_graph_dynamics.md](future_graph_dynamics.md): future direction for dynamic graph modeling, structural projection, and subroutine contracts
 - [goal_validation.md](goal_validation.md): validation requests, passes, statuses, and progressive goal-oriented validation
